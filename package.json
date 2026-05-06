@@ -1,0 +1,26 @@
+{
+  "name": "hellowee",
+  "version": "1.0.0",
+  "description": "멀티플레이어 시메지 데스크탑 앱",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.hellowee.app",
+    "productName": "Hellowee",
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" }
+  }
+}
