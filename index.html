@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hellowee</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* 내 캐릭터 */
+    .character {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      image-rendering: pixelated;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .character.grabbed {
+      cursor: grabbing;
+    }
+
+    /* 이름표 */
+    .nameplate {
+      position: absolute;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 99px;
+      white-space: nowrap;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <script src="renderer.js"></script>
+</body>
+</html>
