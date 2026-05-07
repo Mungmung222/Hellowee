@@ -10,7 +10,7 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// 방 목록: { roomCode: { users: {socketId: {name}}, chatLog: [], whisperLog: {} } }
+// 방 목록
 const rooms = {};
 
 io.on('connection', (socket) => {
@@ -18,36 +18,48 @@ io.on('connection', (socket) => {
 
   let currentRoom = null;
   let currentName = null;
+  let currentParts = null;
 
   // ─── 방 입장 ──────────────────────────────
-  socket.on('join', ({ room, name }) => {
+  socket.on('join', ({ room, name, parts }) => {
     currentRoom = room;
     currentName = name;
+    currentParts = parts || {};
     socket.join(room);
 
     if (!rooms[room]) {
       rooms[room] = { users: {}, chatLog: [], whisperLog: {} };
     }
 
-    // 기존 유저들 목록 전달
+    // 기존 유저들 목록 전달 (파츠 정보 포함)
     Object.entries(rooms[room].users).forEach(([id, data]) => {
-      socket.emit('user-joined', { id, name: data.name });
+      socket.emit('user-joined', { id, name: data.name, parts: data.parts });
     });
 
     // 새 유저 등록
-    rooms[room].users[socket.id] = { name };
+    rooms[room].users[socket.id] = { name, parts };
 
-    // 다른 유저들에게 알림
-    socket.to(room).emit('user-joined', { id: socket.id, name });
+    // 다른 유저들에게 알림 (파츠 정보 포함)
+    socket.to(room).emit('user-joined', { id: socket.id, name, parts });
 
-    // 최근 채팅기록 전달 (최대 50개)
+    // 최근 채팅기록 전달
     socket.emit('chat-history', rooms[room].chatLog.slice(-50));
 
-    // 귓속말 기록 전달 (나한테 온 것만)
+    // 귓속말 기록 전달
     const myWhispers = rooms[room].whisperLog[socket.id] || [];
     socket.emit('whisper-history', myWhispers.slice(-50));
 
-    console.log(`[${room}] ${name} 입장 (총 ${Object.keys(rooms[room].users).length}명)`);
+    console.log(`[${room}] ${name} 입장 (총 ${Object.keys(rooms[room]).length}명)`);
+  });
+
+  // ─── 파츠 변경 (실시간 커스텀) ──────────────
+  socket.on('update-parts', (parts) => {
+    if (!currentRoom) return;
+    currentParts = parts;
+    if (rooms[currentRoom] && rooms[currentRoom].users[socket.id]) {
+      rooms[currentRoom].users[socket.id].parts = parts;
+    }
+    socket.to(currentRoom).emit('user-parts-updated', { id: socket.id, parts });
   });
 
   // ─── 캐릭터 움직임 ─────────────────────────
@@ -56,7 +68,7 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('user-moved', { id: socket.id, ...data });
   });
 
-  // ─── 전체 채팅 (말풍선) ─────────────────────
+  // ─── 전체 채팅 ─────────────────────────────
   socket.on('chat', ({ message }) => {
     if (!currentRoom || !message.trim()) return;
 
@@ -67,17 +79,15 @@ io.on('connection', (socket) => {
       time: Date.now(),
     };
 
-    // 기록 저장 (최대 200개 유지)
     rooms[currentRoom].chatLog.push(chatData);
     if (rooms[currentRoom].chatLog.length > 200) {
       rooms[currentRoom].chatLog.shift();
     }
 
-    // 전체에게 브로드캐스트 (나 포함)
     io.to(currentRoom).emit('chat-message', chatData);
   });
 
-  // ─── 귓속말 (1:1 말풍선) ────────────────────
+  // ─── 귓속말 ────────────────────────────────
   socket.on('whisper', ({ targetId, message }) => {
     if (!currentRoom || !message.trim()) return;
 
@@ -89,7 +99,6 @@ io.on('connection', (socket) => {
       time: Date.now(),
     };
 
-    // 기록 저장 (양쪽 다)
     if (!rooms[currentRoom].whisperLog[socket.id]) {
       rooms[currentRoom].whisperLog[socket.id] = [];
     }
@@ -99,7 +108,6 @@ io.on('connection', (socket) => {
     rooms[currentRoom].whisperLog[socket.id].push(whisperData);
     rooms[currentRoom].whisperLog[targetId].push(whisperData);
 
-    // 보낸 사람 + 받는 사람만
     socket.emit('whisper-message', whisperData);
     io.to(targetId).emit('whisper-message', whisperData);
   });
@@ -107,19 +115,15 @@ io.on('connection', (socket) => {
   // ─── 다른 유저 캐릭터 잡기 ──────────────────
   socket.on('grab-other', ({ targetId }) => {
     if (!currentRoom) return;
-    // 잡힌 사람에게 알림
     io.to(targetId).emit('force-grabbed', { grabbedBy: socket.id });
-    // 파티 전원에게 잡힘 상태 알림
     io.to(currentRoom).emit('char-grabbed', { targetId, grabbedBy: socket.id });
   });
 
-  // 잡힌 캐릭터 위치 업데이트
   socket.on('drag-other', ({ targetId, x, y }) => {
     if (!currentRoom) return;
     io.to(currentRoom).emit('char-dragged', { targetId, x, y });
   });
 
-  // 던지기
   socket.on('throw-other', ({ targetId, vx, vy }) => {
     if (!currentRoom) return;
     io.to(targetId).emit('force-thrown', { vx, vy });

@@ -18,9 +18,7 @@
     /* ─── 캐릭터 ─── */
     .character {
       position: absolute;
-      width: 64px;
-      height: 64px;
-      image-rendering: pixelated;
+      image-rendering: auto;
       cursor: grab;
       user-select: none;
     }
@@ -84,13 +82,8 @@
       border-right: 6px solid transparent;
       border-top: 6px solid #fff;
     }
-    .bubble.whisper {
-      background: #dfe6fd;
-      color: #3a3d7a;
-    }
-    .bubble.whisper::after {
-      border-top-color: #dfe6fd;
-    }
+    .bubble.whisper { background: #dfe6fd; color: #3a3d7a; }
+    .bubble.whisper::after { border-top-color: #dfe6fd; }
     @keyframes bubble-in {
       from { opacity: 0; transform: translateX(-50%) translateY(5px) scale(0.9); }
       to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
@@ -149,7 +142,7 @@
       color: #888;
     }
 
-    /* ─── 채팅 기록창 (핸드폰 UI) ─── */
+    /* ─── 핸드폰 채팅 기록창 ─── */
     .phone-chat {
       position: fixed;
       right: 30px;
@@ -166,7 +159,6 @@
       box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     }
     .phone-chat.visible { display: flex; }
-
     .phone-header {
       padding: 14px 16px 10px;
       background: #1a1a22;
@@ -175,20 +167,9 @@
       align-items: center;
       justify-content: space-between;
     }
-    .phone-header-title {
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .phone-close {
-      background: none;
-      border: none;
-      color: #666;
-      font-size: 18px;
-      cursor: pointer;
-    }
+    .phone-header-title { color: #fff; font-size: 14px; font-weight: 600; }
+    .phone-close { background: none; border: none; color: #666; font-size: 18px; cursor: pointer; }
     .phone-close:hover { color: #fff; }
-
     .phone-tabs {
       display: flex;
       background: #1a1a22;
@@ -203,11 +184,7 @@
       cursor: pointer;
       border-bottom: 2px solid transparent;
     }
-    .phone-tab.active {
-      color: #fff;
-      border-bottom-color: #6C8EBF;
-    }
-
+    .phone-tab.active { color: #fff; border-bottom-color: #6C8EBF; }
     .phone-messages {
       flex: 1;
       overflow-y: auto;
@@ -218,7 +195,6 @@
     }
     .phone-messages::-webkit-scrollbar { width: 3px; }
     .phone-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
-
     .phone-msg {
       max-width: 85%;
       padding: 8px 12px;
@@ -226,28 +202,10 @@
       font-size: 12px;
       line-height: 1.4;
     }
-    .phone-msg.other {
-      align-self: flex-start;
-      background: #2a2a35;
-      color: #ddd;
-    }
-    .phone-msg.mine {
-      align-self: flex-end;
-      background: #6C8EBF;
-      color: #fff;
-    }
-    .phone-msg-name {
-      font-size: 10px;
-      color: #888;
-      margin-bottom: 2px;
-    }
-    .phone-msg-time {
-      font-size: 9px;
-      color: #555;
-      margin-top: 2px;
-      text-align: right;
-    }
-
+    .phone-msg.other { align-self: flex-start; background: #2a2a35; color: #ddd; }
+    .phone-msg.mine { align-self: flex-end; background: #6C8EBF; color: #fff; }
+    .phone-msg-name { font-size: 10px; color: #888; margin-bottom: 2px; }
+    .phone-msg-time { font-size: 9px; color: #555; margin-top: 2px; text-align: right; }
     .phone-input-wrap {
       padding: 10px;
       background: #1a1a22;
@@ -275,17 +233,82 @@
       cursor: pointer;
       font-size: 14px;
     }
+
+    /* ─── 꾸미기 패널 ─── */
+    .customizer {
+      position: fixed;
+      left: 30px;
+      bottom: 30px;
+      width: 260px;
+      background: #1a1a22;
+      border: 1px solid #333;
+      border-radius: 18px;
+      padding: 16px;
+      z-index: 1000;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    }
+    .customizer-title {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+    .customizer-row {
+      margin-bottom: 10px;
+    }
+    .customizer-label {
+      color: #888;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .customizer-options {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .customizer-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 99px;
+      border: 1px solid #333;
+      background: #222;
+      color: #aaa;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .customizer-btn:hover {
+      border-color: #6C8EBF;
+      color: #fff;
+    }
+    .customizer-btn.active {
+      background: #6C8EBF;
+      border-color: #6C8EBF;
+      color: #fff;
+    }
+    .customizer-close {
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .customizer-close:hover { background: #2a2a35; color: #fff; }
   </style>
 </head>
 <body>
 
-  <!-- 채팅 입력 (캐릭터 클릭 시 뜨는 간단 입력) -->
+  <!-- 채팅 입력 -->
   <div class="chat-input-wrap" id="chatInputWrap">
     <span class="chat-input-label" id="chatInputLabel">전체채팅</span>
     <input type="text" id="chatInput" placeholder="메시지 입력..." autocomplete="off" />
   </div>
 
-  <!-- 채팅 기록창 (핸드폰 UI) -->
+  <!-- 핸드폰 채팅 기록창 -->
   <div class="phone-chat" id="phoneChat">
     <div class="phone-header">
       <span class="phone-header-title">💬 Hellowee</span>
