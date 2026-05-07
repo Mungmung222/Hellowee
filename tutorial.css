@@ -1,0 +1,74 @@
+    /* ═══ 튜토리얼 ═══ */
+    .tutorial-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 2000;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 100px;
+    }
+    .tutorial-guide {
+      background: #1a1a22;
+      border: 2px solid #6C8EBF;
+      border-radius: 20px;
+      padding: 20px 24px 16px;
+      max-width: 280px;
+      box-shadow: 0 12px 40px rgba(108,142,191,0.3);
+      animation: tutorial-pop 0.3s ease;
+    }
+    @keyframes tutorial-pop {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .tutorial-message {
+      color: #eee;
+      font-size: 14px;
+      line-height: 1.6;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .tutorial-btns {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .tutorial-btn {
+      padding: 8px 20px;
+      border-radius: 12px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tutorial-btn.skip {
+      background: #2a2a35;
+      color: #888;
+    }
+    .tutorial-btn.skip:hover { color: #ccc; }
+    .tutorial-btn.next {
+      background: #6C8EBF;
+      color: #fff;
+    }
+    .tutorial-btn.next:hover { background: #5a7dae; }
+    .tutorial-progress {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+    .tutorial-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #2a2a35;
+    }
+    .tutorial-dot.active {
+      background: #6C8EBF;
+      width: 16px;
+      border-radius: 3px;
+    }
+    .tutorial-dot.done {
+      background: #4a6a8f;
+    }
