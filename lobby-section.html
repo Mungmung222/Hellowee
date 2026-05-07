@@ -1,0 +1,28 @@
+      <div class="phone-page" id="pagelobby">
+        <div class="lobby-section">
+          <div class="lobby-card">
+            <div class="lobby-card-title">📡 현재 방</div>
+            <div class="lobby-room-info">
+              <div class="lobby-room-label">방 이름</div>
+              <div id="lobbyRoomTitle" style="font-size:14px;font-weight:700;color:#fff;text-align:center;margin:4px 0;">---</div>
+              <div class="lobby-room-label">방 코드</div>
+              <div class="lobby-room-code" id="lobbyRoomCode">---</div>
+              <div class="lobby-members" id="lobbyMembers"></div>
+            </div>
+          </div>
+          <div class="lobby-card">
+            <div class="lobby-card-title">✨ 새 방 만들기</div>
+            <input class="lobby-input" id="lobbyRoomName" placeholder="방 이름" maxlength="20" />
+            <input class="lobby-input" id="lobbyMyName" placeholder="내 이름" maxlength="12" />
+            <button class="lobby-btn primary" id="lobbyCreate">방 만들기</button>
+          </div>
+          <div class="lobby-card">
+            <div class="lobby-card-title">🚪 방 입장</div>
+            <input class="lobby-input" id="lobbyJoinRoomName" placeholder="방 이름" maxlength="20" />
+            <input class="lobby-input" id="lobbyCode" placeholder="방 코드" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-size:18px;font-weight:700;" />
+            <input class="lobby-input" id="lobbyJoinName" placeholder="내 이름" maxlength="12" />
+            <button class="lobby-btn primary" id="lobbyJoin">입장하기</button>
+            <div id="lobbyError" style="color:#ff4757;font-size:11px;text-align:center;margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
