@@ -11,15 +11,18 @@ const GRAVITY = 0.5;
 const FLOOR_Y = window.innerHeight - CHAR_SIZE;
 const BUBBLE_DURATION = 4000;
 const CLICK_THRESHOLD = 5;
-
-// 어텐션 모드 설정
-const WHISPER_ATTENTION = 5;       // 귓속말 5개 이상
-const CHAT_ATTENTION = 30;         // 전체채팅 30개 이상
-const MOUSE_IDLE_TIME = 3000;      // 3초 동안 클릭/드래그/움직임 없을 때
+const WHISPER_ATTENTION = 5;
+const CHAT_ATTENTION = 30;
+const MOUSE_IDLE_TIME = 3000;
 const CHASE_SPEED = 3;
 
+// 설정 상태
+let settingPin = true;
+let settingAttention = true;
+let settingBubble = true;
+
 // ════════════════════════════════════════════
-//  레이어 기반 파츠 시스템
+//  파츠 시스템
 // ════════════════════════════════════════════
 const LAYER_ORDER = ['body', 'clothes', 'mouth', 'eyes', 'hair', 'accessory'];
 
@@ -33,16 +36,10 @@ const PARTS_OPTIONS = {
 };
 
 const ANIM_FRAMES = {
-  idle:    2,
-  walk:    3,
-  fall:    1,
-  grabbed: 1,
-  land:    1,
-  thrown:  1,
+  idle: 2, walk: 3, fall: 1, grabbed: 1, land: 1, thrown: 1,
 };
 
 const imageCache = {};
-
 function getPartImage(layer, option, action) {
   if (option === 'none') return null;
   const key = `${layer}/${option}/${action}`;
@@ -58,91 +55,48 @@ function getPartImage(layer, option, action) {
 //  캐릭터 상태
 // ════════════════════════════════════════════
 const myChar = {
-  x: window.innerWidth / 2,
-  y: 100,
+  x: window.innerWidth / 2, y: 100,
   vx: 0, vy: 0,
-  state: 'fall',
-  dir: 1,
-  frame: 0,
-  frameTimer: 0,
-  isGrabbed: false,
-  forcedGrab: false,
-  attentionGrab: false,
-  name: 'me',
+  state: 'fall', dir: 1, frame: 0, frameTimer: 0,
+  isGrabbed: false, forcedGrab: false, attentionGrab: false,
+  name: 'guest',
   parts: {
-    body:      'default',
-    eyes:      'round',
-    mouth:     'smile',
-    hair:      'short',
-    clothes:   'hoodie',
-    accessory: 'none',
+    body: 'default', eyes: 'round', mouth: 'smile',
+    hair: 'short', clothes: 'hoodie', accessory: 'none',
   },
 };
 
 const otherChars = {};
-let unreadChat = 0;
-let unreadWhisper = 0;
-let chatHistory = [];
-let whisperHistory = [];
+let unreadChat = 0, unreadWhisper = 0;
+let chatHistory = [], whisperHistory = [];
+let currentRoom = null;
 
 // ════════════════════════════════════════════
-//  마우스 추적 (어텐션 모드용)
-//  3초간 클릭/드래그/움직임 전부 없어야 idle 판정
+//  마우스 추적
 // ════════════════════════════════════════════
 let mousePos = { x: window.innerWidth / 2, y: FLOOR_Y };
-let lastActivityTime = Date.now();  // 모든 마우스 활동 (이동+클릭+드래그)
+let lastActivityTime = Date.now();
 let mouseIsIdle = false;
 let hasGrabbedMouse = false;
 
-// 마우스 움직임
 document.addEventListener('mousemove', (e) => {
   mousePos.x = e.clientX;
   mousePos.y = e.clientY;
   lastActivityTime = Date.now();
-
-  if (mouseIsIdle && hasGrabbedMouse) {
+  if (mouseIsIdle && hasGrabbedMouse && myChar.attentionGrab) {
     mouseIsIdle = false;
-    if (myChar.attentionGrab) {
-      myChar.attentionGrab = false;
-      myChar.forcedGrab = false;
-      myChar.state = 'fall';
-      myChar.vy = -3;
-      myChar.vx = (Math.random() - 0.5) * 4;
-    }
+    myChar.attentionGrab = false;
+    myChar.forcedGrab = false;
+    myChar.state = 'fall';
+    myChar.vy = -3;
+    myChar.vx = (Math.random() - 0.5) * 4;
   }
 });
-
-// 마우스 클릭도 활동으로 감지
-document.addEventListener('mousedown', () => {
-  lastActivityTime = Date.now();
-});
-
-// 드래그도 활동으로 감지 (mousemove에서 이미 됨)
+document.addEventListener('mousedown', () => { lastActivityTime = Date.now(); });
 
 function isAttentionMode() {
-  return unreadWhisper >= WHISPER_ATTENTION || unreadChat >= CHAT_ATTENTION;
+  return settingAttention && (unreadWhisper >= WHISPER_ATTENTION || unreadChat >= CHAT_ATTENTION);
 }
-
-// ════════════════════════════════════════════
-//  핀(항상 위에) 토글 버튼
-// ════════════════════════════════════════════
-const pinBtn = document.getElementById('pinBtn');
-let isPinned = true;
-
-pinBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  ipcRenderer.send('toggle-pin');
-});
-
-ipcRenderer.on('pin-status', (event, pinned) => {
-  isPinned = pinned;
-  pinBtn.textContent = pinned ? '📌' : '📌❌';
-  pinBtn.title = pinned ? '항상 위에 (켜짐)' : '항상 위에 (꺼짐)';
-  pinBtn.classList.toggle('off', !pinned);
-});
-
-// 시작할 때 상태 확인
-ipcRenderer.send('get-pin-status');
 
 // ════════════════════════════════════════════
 //  내 캐릭터 DOM
@@ -153,8 +107,6 @@ myEl.height = CHAR_SIZE;
 myEl.className = 'character';
 myEl.style.width = CHAR_SIZE + 'px';
 myEl.style.height = CHAR_SIZE + 'px';
-myEl.style.left = myChar.x + 'px';
-myEl.style.top = myChar.y + 'px';
 document.body.appendChild(myEl);
 const myCtx = myEl.getContext('2d');
 
@@ -165,7 +117,7 @@ alertBadge.style.display = 'none';
 document.body.appendChild(alertBadge);
 
 // ════════════════════════════════════════════
-//  레이어 기반 렌더링
+//  렌더링
 // ════════════════════════════════════════════
 function renderChar(ctx, el, char) {
   const action = char.state || 'idle';
@@ -174,32 +126,20 @@ function renderChar(ctx, el, char) {
 
   ctx.clearRect(0, 0, CHAR_SIZE, CHAR_SIZE);
   ctx.save();
+  if (char.dir === -1) { ctx.translate(CHAR_SIZE, 0); ctx.scale(-1, 1); }
 
-  if (char.dir === -1) {
-    ctx.translate(CHAR_SIZE, 0);
-    ctx.scale(-1, 1);
-  }
-
-  let hasAnyImage = false;
-
+  let hasImg = false;
   LAYER_ORDER.forEach(layer => {
-    const option = char.parts?.[layer];
-    if (!option || option === 'none') return;
-
-    const img = getPartImage(layer, option, action);
+    const opt = char.parts?.[layer];
+    if (!opt || opt === 'none') return;
+    const img = getPartImage(layer, opt, action);
     if (img && img.complete && img.naturalWidth > 0) {
-      hasAnyImage = true;
-      ctx.drawImage(
-        img,
-        frame * CHAR_SIZE, 0,
-        CHAR_SIZE, CHAR_SIZE,
-        0, 0,
-        CHAR_SIZE, CHAR_SIZE
-      );
+      hasImg = true;
+      ctx.drawImage(img, frame * CHAR_SIZE, 0, CHAR_SIZE, CHAR_SIZE, 0, 0, CHAR_SIZE, CHAR_SIZE);
     }
   });
 
-  if (!hasAnyImage) {
+  if (!hasImg) {
     ctx.fillStyle = '#ff6b9d';
     ctx.roundRect(8, 8, CHAR_SIZE - 16, CHAR_SIZE - 16, 12);
     ctx.fill();
@@ -207,265 +147,319 @@ function renderChar(ctx, el, char) {
     ctx.font = '36px sans-serif';
     ctx.fillText('🐾', CHAR_SIZE / 2 - 18, CHAR_SIZE / 2 + 12);
   }
-
   ctx.restore();
   el.style.left = char.x + 'px';
   el.style.top = char.y + 'px';
 }
 
 // ════════════════════════════════════════════
-//  마우스 — 클릭/드래그 구분
+//  마우스 — 클릭/드래그
 // ════════════════════════════════════════════
-let mouseDownPos = null;
-let mouseDownTime = 0;
-let dragTarget = null;
-let dragOffset = { x: 0, y: 0 };
-let isDragging = false;
+let mouseDownPos = null, dragTarget = null, dragOffset = { x: 0, y: 0 }, isDragging = false;
 
 myEl.addEventListener('mousedown', (e) => {
   e.stopPropagation();
   mouseDownPos = { x: e.clientX, y: e.clientY };
-  mouseDownTime = Date.now();
   dragTarget = 'self';
   dragOffset.x = e.clientX - myChar.x;
   dragOffset.y = e.clientY - myChar.y;
   isDragging = false;
   ipcRenderer.send('set-ignore-mouse', false);
-
-  if (myChar.attentionGrab) {
-    myChar.attentionGrab = false;
-    myChar.forcedGrab = false;
-  }
+  if (myChar.attentionGrab) { myChar.attentionGrab = false; myChar.forcedGrab = false; }
 });
 
 document.addEventListener('mousemove', (e) => {
   if (!dragTarget) return;
-
-  const dist = mouseDownPos
-    ? Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y)
-    : 0;
-
+  const dist = mouseDownPos ? Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y) : 0;
   if (!isDragging && dist > CLICK_THRESHOLD) {
     isDragging = true;
     if (dragTarget === 'self') {
-      myChar.isGrabbed = true;
-      myChar.state = 'grabbed';
-      myChar.vx = 0;
-      myChar.vy = 0;
-      myEl.classList.add('grabbed');
+      myChar.isGrabbed = true; myChar.state = 'grabbed'; myChar.vx = 0; myChar.vy = 0;
     } else {
       if (socket) socket.emit('grab-other', { targetId: dragTarget });
     }
   }
-
   if (isDragging) {
     if (dragTarget === 'self') {
-      myChar.x = e.clientX - dragOffset.x;
-      myChar.y = e.clientY - dragOffset.y;
-    } else {
-      if (socket) {
-        socket.emit('drag-other', {
-          targetId: dragTarget,
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y,
-        });
-      }
+      myChar.x = e.clientX - dragOffset.x; myChar.y = e.clientY - dragOffset.y;
+    } else if (socket) {
+      socket.emit('drag-other', { targetId: dragTarget, x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y });
     }
   }
 });
 
 document.addEventListener('mouseup', (e) => {
   if (!dragTarget) return;
-
   if (!isDragging) {
     if (dragTarget === 'self') {
-      showMyMenu(e.clientX, e.clientY);
+      openPhone('chat'); // 내 캐릭터 클릭 → 핸드폰 UI 열기
     } else {
-      openWhisperInput(dragTarget);
+      openQuickWhisper(dragTarget, e.clientX, e.clientY);
     }
   } else {
     if (dragTarget === 'self') {
-      myChar.isGrabbed = false;
-      myChar.state = 'fall';
-      myChar.vy = 2;
-      myEl.classList.remove('grabbed');
-    } else {
-      if (socket) {
-        socket.emit('throw-other', {
-          targetId: dragTarget,
-          vx: (e.clientX - mouseDownPos.x) * 0.1,
-          vy: -3,
-        });
-      }
+      myChar.isGrabbed = false; myChar.state = 'fall'; myChar.vy = 2;
+    } else if (socket) {
+      socket.emit('throw-other', { targetId: dragTarget, vx: (e.clientX - mouseDownPos.x) * 0.1, vy: -3 });
     }
   }
-
   ipcRenderer.send('set-ignore-mouse', true);
-  dragTarget = null;
-  mouseDownPos = null;
-  isDragging = false;
+  dragTarget = null; mouseDownPos = null; isDragging = false;
 });
 
 // ════════════════════════════════════════════
-//  팝업 메뉴
+//  핸드폰 UI — 통합
 // ════════════════════════════════════════════
-let currentMenu = null;
+const phone = document.getElementById('phone');
+const phoneClose = document.getElementById('phoneClose');
+const navItems = document.querySelectorAll('.phone-nav-item');
+const pages = document.querySelectorAll('.phone-page');
+let currentPage = 'chat';
 
-function showMyMenu(x, y) {
-  closeMenu();
-  hideAlert();
-
-  const menu = document.createElement('div');
-  menu.className = 'popup-menu';
-  menu.style.left = x + 'px';
-  menu.style.top = (y - 200) + 'px';
-
-  const items = [
-    { icon: '💬', label: '전체채팅',   action: () => openChatInput('chat') },
-    { icon: '📖', label: '대화보기',   action: () => openPhoneChat('chat') },
-    { icon: '🤫', label: '귓속말보기', action: () => openPhoneChat('whisper') },
-    { icon: '🎨', label: '꾸미기',     action: () => openCustomizer() },
-  ];
-
-  items.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'popup-menu-item';
-    div.innerHTML = `<span>${item.icon}</span> ${item.label}`;
-    div.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeMenu();
-      item.action();
-    });
-    menu.appendChild(div);
-  });
-
-  document.body.appendChild(menu);
-  currentMenu = menu;
-
-  setTimeout(() => {
-    document.addEventListener('click', closeMenuOnClick);
-  }, 50);
-}
-
-function closeMenu() {
-  if (currentMenu) { currentMenu.remove(); currentMenu = null; }
-  document.removeEventListener('click', closeMenuOnClick);
-}
-
-function closeMenuOnClick(e) {
-  if (currentMenu && !currentMenu.contains(e.target)) closeMenu();
-}
-
-// ════════════════════════════════════════════
-//  꾸미기 패널
-// ════════════════════════════════════════════
-let customizerEl = null;
-
-function openCustomizer() {
-  if (customizerEl) { customizerEl.remove(); customizerEl = null; return; }
+function openPhone(page) {
+  currentPage = page || 'chat';
+  phone.classList.add('visible');
   ipcRenderer.send('set-ignore-mouse', false);
+  switchPage(currentPage);
+  hideAlert();
+}
 
-  customizerEl = document.createElement('div');
-  customizerEl.className = 'customizer';
+function closePhone() {
+  phone.classList.remove('visible');
+  ipcRenderer.send('set-ignore-mouse', true);
+}
 
-  const title = document.createElement('div');
-  title.className = 'customizer-title';
-  title.textContent = '🎨 꾸미기';
-  customizerEl.appendChild(title);
+phoneClose.addEventListener('click', closePhone);
 
-  const labelMap = {
-    body: '피부', eyes: '눈', mouth: '입',
-    hair: '헤어', clothes: '옷', accessory: '악세서리',
-  };
+navItems.forEach(item => {
+  item.addEventListener('click', () => switchPage(item.dataset.page));
+});
 
-  LAYER_ORDER.forEach(layer => {
-    const row = document.createElement('div');
-    row.className = 'customizer-row';
+function switchPage(page) {
+  currentPage = page;
+  navItems.forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  pages.forEach(p => p.classList.toggle('active', p.id === 'page' + page));
 
-    const label = document.createElement('div');
-    label.className = 'customizer-label';
-    label.textContent = labelMap[layer];
-    row.appendChild(label);
-
-    const btnWrap = document.createElement('div');
-    btnWrap.className = 'customizer-options';
-
-    PARTS_OPTIONS[layer].forEach(option => {
-      const btn = document.createElement('button');
-      btn.className = 'customizer-btn';
-      if (myChar.parts[layer] === option) btn.classList.add('active');
-      btn.textContent = option;
-      btn.addEventListener('click', () => {
-        myChar.parts[layer] = option;
-        btnWrap.querySelectorAll('.customizer-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        if (socket) socket.emit('update-parts', myChar.parts);
-      });
-      btnWrap.appendChild(btn);
-    });
-
-    row.appendChild(btnWrap);
-    customizerEl.appendChild(row);
-  });
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'customizer-close';
-  closeBtn.textContent = '✕ 닫기';
-  closeBtn.addEventListener('click', () => {
-    customizerEl.remove(); customizerEl = null;
-    ipcRenderer.send('set-ignore-mouse', true);
-  });
-  customizerEl.appendChild(closeBtn);
-
-  document.body.appendChild(customizerEl);
+  if (page === 'chat') renderChatMessages();
+  if (page === 'lobby') updateLobbyUI();
 }
 
 // ════════════════════════════════════════════
-//  채팅 입력
+//  채팅 페이지
 // ════════════════════════════════════════════
-const chatInputWrap = document.getElementById('chatInputWrap');
-const chatInput = document.getElementById('chatInput');
-const chatInputLabel = document.getElementById('chatInputLabel');
-let chatMode = 'chat';
+const chatMessages = document.getElementById('chatMessages');
+const chatPageInput = document.getElementById('chatPageInput');
+const chatPageSend = document.getElementById('chatPageSend');
+const chatSubTabs = document.querySelectorAll('.chat-sub-tab');
+let chatSubTab = 'all';
+
+chatSubTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    chatSubTab = tab.dataset.subtab;
+    chatSubTabs.forEach(t => t.classList.toggle('active', t.dataset.subtab === chatSubTab));
+    renderChatMessages();
+    if (chatSubTab === 'all') unreadChat = 0;
+    if (chatSubTab === 'whisper') unreadWhisper = 0;
+  });
+});
+
+function renderChatMessages() {
+  chatMessages.innerHTML = '';
+  const log = chatSubTab === 'all' ? chatHistory : whisperHistory;
+  log.forEach(msg => {
+    const div = document.createElement('div');
+    const isMine = msg.id === socket?.id || msg.fromId === socket?.id;
+    div.className = 'chat-msg ' + (isMine ? 'mine' : 'other');
+    const nameDiv = !isMine ? `<div class="chat-msg-name">${msg.name || msg.fromName}</div>` : '';
+    const time = new Date(msg.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `${nameDiv}${msg.message}<div class="chat-msg-time">${time}</div>`;
+    chatMessages.appendChild(div);
+  });
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function sendChatPageMsg() {
+  const msg = chatPageInput.value.trim();
+  if (!msg || !socket) return;
+  if (chatSubTab === 'all') {
+    socket.emit('chat', { message: msg });
+  }
+  chatPageInput.value = '';
+}
+
+chatPageSend.addEventListener('click', sendChatPageMsg);
+chatPageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatPageMsg(); });
+
+// ════════════════════════════════════════════
+//  퀵 귓속말 (다른 캐릭터 클릭)
+// ════════════════════════════════════════════
+const quickChat = document.getElementById('quickChat');
+const quickChatInput = document.getElementById('quickChatInput');
+const quickChatLabel = document.getElementById('quickChatLabel');
 let whisperTargetId = null;
 
-function openChatInput(mode) {
-  chatMode = mode;
-  chatInputLabel.textContent = '전체채팅';
-  chatInputWrap.classList.add('visible');
-  chatInput.value = '';
-  chatInput.focus();
-  ipcRenderer.send('set-ignore-mouse', false);
-}
-
-function openWhisperInput(targetId) {
-  chatMode = 'whisper';
+function openQuickWhisper(targetId, x, y) {
   whisperTargetId = targetId;
   const name = otherChars[targetId]?.name || '???';
-  chatInputLabel.textContent = `🤫 ${name}에게 귓속말`;
-  chatInputWrap.classList.add('visible');
-  chatInput.value = '';
-  chatInput.focus();
+  quickChatLabel.textContent = `🤫 ${name}에게`;
+  quickChat.style.left = x + 'px';
+  quickChat.style.top = (y - 40) + 'px';
+  quickChat.classList.add('visible');
+  quickChatInput.value = '';
+  quickChatInput.focus();
   ipcRenderer.send('set-ignore-mouse', false);
 }
 
-chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && chatInput.value.trim()) {
-    const msg = chatInput.value.trim();
-    if (chatMode === 'chat') {
-      socket.emit('chat', { message: msg });
-    } else if (chatMode === 'whisper' && whisperTargetId) {
-      socket.emit('whisper', { targetId: whisperTargetId, message: msg });
-    }
-    chatInput.value = '';
-    chatInputWrap.classList.remove('visible');
+quickChatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && quickChatInput.value.trim()) {
+    socket.emit('whisper', { targetId: whisperTargetId, message: quickChatInput.value.trim() });
+    quickChatInput.value = '';
+    quickChat.classList.remove('visible');
     ipcRenderer.send('set-ignore-mouse', true);
   }
   if (e.key === 'Escape') {
-    chatInputWrap.classList.remove('visible');
+    quickChat.classList.remove('visible');
     ipcRenderer.send('set-ignore-mouse', true);
   }
 });
+
+// ════════════════════════════════════════════
+//  로비 페이지
+// ════════════════════════════════════════════
+const lobbyCreate = document.getElementById('lobbyCreate');
+const lobbyJoin = document.getElementById('lobbyJoin');
+const lobbyMyName = document.getElementById('lobbyMyName');
+const lobbyCode = document.getElementById('lobbyCode');
+const lobbyJoinName = document.getElementById('lobbyJoinName');
+const lobbyRoomCode = document.getElementById('lobbyRoomCode');
+const lobbyMembers = document.getElementById('lobbyMembers');
+
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+lobbyCreate.addEventListener('click', () => {
+  const name = lobbyMyName.value.trim() || 'guest';
+  const code = generateRoomCode();
+  joinRoom(code, name);
+});
+
+lobbyJoin.addEventListener('click', () => {
+  const code = lobbyCode.value.trim().toUpperCase();
+  const name = lobbyJoinName.value.trim() || 'guest';
+  if (!code) return;
+  joinRoom(code, name);
+});
+
+function joinRoom(code, name) {
+  myChar.name = name;
+  currentRoom = code;
+  if (socket) socket.disconnect();
+  connectSocket(code, name);
+  updateLobbyUI();
+  switchPage('chat');
+}
+
+function updateLobbyUI() {
+  lobbyRoomCode.textContent = currentRoom || '---';
+  lobbyMembers.innerHTML = '';
+
+  if (currentRoom) {
+    // 나
+    const me = document.createElement('div');
+    me.className = 'lobby-member';
+    me.innerHTML = `<span class="lobby-member-dot"></span> ${myChar.name} (나)`;
+    lobbyMembers.appendChild(me);
+
+    // 다른 유저
+    Object.values(otherChars).forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'lobby-member';
+      div.innerHTML = `<span class="lobby-member-dot"></span> ${c.name}`;
+      lobbyMembers.appendChild(div);
+    });
+  }
+}
+
+// ════════════════════════════════════════════
+//  꾸미기 페이지
+// ════════════════════════════════════════════
+const customSection = document.querySelector('.custom-section');
+const labelMap = { body: '피부', eyes: '눈', mouth: '입', hair: '헤어', clothes: '옷', accessory: '악세서리' };
+
+LAYER_ORDER.forEach(layer => {
+  const row = document.createElement('div');
+  row.className = 'custom-row';
+
+  const label = document.createElement('div');
+  label.className = 'custom-label';
+  label.textContent = labelMap[layer];
+  row.appendChild(label);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'custom-options';
+
+  PARTS_OPTIONS[layer].forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'custom-btn';
+    if (myChar.parts[layer] === opt) btn.classList.add('active');
+    btn.textContent = opt;
+    btn.addEventListener('click', () => {
+      myChar.parts[layer] = opt;
+      wrap.querySelectorAll('.custom-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (socket) socket.emit('update-parts', myChar.parts);
+    });
+    wrap.appendChild(btn);
+  });
+
+  row.appendChild(wrap);
+  customSection.appendChild(row);
+});
+
+// ════════════════════════════════════════════
+//  설정 페이지
+// ════════════════════════════════════════════
+const togglePin = document.getElementById('togglePin');
+const toggleAttention = document.getElementById('toggleAttention');
+const toggleBubble = document.getElementById('toggleBubble');
+const settingsLeave = document.getElementById('settingsLeave');
+
+togglePin.addEventListener('click', () => {
+  settingPin = !settingPin;
+  togglePin.classList.toggle('on', settingPin);
+  ipcRenderer.send('toggle-pin');
+});
+
+toggleAttention.addEventListener('click', () => {
+  settingAttention = !settingAttention;
+  toggleAttention.classList.toggle('on', settingAttention);
+});
+
+toggleBubble.addEventListener('click', () => {
+  settingBubble = !settingBubble;
+  toggleBubble.classList.toggle('on', settingBubble);
+});
+
+settingsLeave.addEventListener('click', () => {
+  if (socket) socket.disconnect();
+  currentRoom = null;
+  Object.keys(otherChars).forEach(id => {
+    otherChars[id].el.remove();
+    otherChars[id].nameEl.remove();
+    delete otherChars[id];
+  });
+  chatHistory = [];
+  whisperHistory = [];
+  updateLobbyUI();
+  switchPage('lobby');
+});
+
+ipcRenderer.on('pin-status', (event, pinned) => {
+  settingPin = pinned;
+  togglePin.classList.toggle('on', pinned);
+});
+ipcRenderer.send('get-pin-status');
 
 // ════════════════════════════════════════════
 //  말풍선
@@ -473,28 +467,27 @@ chatInput.addEventListener('keydown', (e) => {
 const activeBubbles = [];
 
 function showBubble(charX, charY, message, type) {
+  if (!settingBubble) return null;
   const bubble = document.createElement('div');
   bubble.className = 'bubble' + (type === 'whisper' ? ' whisper' : '');
   bubble.textContent = message;
   bubble.style.left = (charX + CHAR_SIZE / 2) + 'px';
   bubble.style.top = (charY - 40) + 'px';
   document.body.appendChild(bubble);
-
   setTimeout(() => {
     bubble.style.opacity = '0';
     bubble.style.transition = 'opacity 0.3s';
     setTimeout(() => bubble.remove(), 300);
   }, BUBBLE_DURATION);
-
   return bubble;
 }
 
 function createTrackedBubble(charGetter, message, type) {
   const pos = charGetter();
   const bubble = showBubble(pos.x, pos.y, message, type);
+  if (!bubble) return;
   const tracker = { el: bubble, charGetter };
   activeBubbles.push(tracker);
-
   setTimeout(() => {
     const idx = activeBubbles.indexOf(tracker);
     if (idx > -1) activeBubbles.splice(idx, 1);
@@ -511,19 +504,21 @@ function updateBubbles() {
 }
 
 // ════════════════════════════════════════════
-//  느낌표 알림
+//  알림
 // ════════════════════════════════════════════
 function showAlert() {
   alertBadge.style.display = 'block';
-  const attention = isAttentionMode();
-  alertBadge.textContent = attention ? '!!' : '!';
-  alertBadge.style.background = attention ? '#ff2020' : '#ff4757';
+  const att = isAttentionMode();
+  alertBadge.textContent = att ? '!!' : '!';
+  alertBadge.style.background = att ? '#ff2020' : '#ff4757';
+  // 채팅 탭 빨간 점
+  document.getElementById('dotChat').classList.toggle('show', unreadChat > 0 || unreadWhisper > 0);
 }
 function hideAlert() {
   alertBadge.style.display = 'none';
-  unreadChat = 0;
-  unreadWhisper = 0;
+  unreadChat = 0; unreadWhisper = 0;
   hasGrabbedMouse = false;
+  document.getElementById('dotChat').classList.remove('show');
 }
 function updateAlertPos() {
   alertBadge.style.left = (myChar.x + CHAR_SIZE - 5) + 'px';
@@ -531,129 +526,45 @@ function updateAlertPos() {
 }
 
 // ════════════════════════════════════════════
-//  핸드폰 채팅 기록창
-// ════════════════════════════════════════════
-const phoneChat = document.getElementById('phoneChat');
-const phoneMessages = document.getElementById('phoneMessages');
-const phoneChatClose = document.getElementById('phoneChatClose');
-const phoneInput = document.getElementById('phoneInput');
-const phoneSend = document.getElementById('phoneSend');
-const phoneTabs = document.querySelectorAll('.phone-tab');
-let phoneTab = 'chat';
-
-function openPhoneChat(tab) {
-  phoneTab = tab;
-  phoneChat.classList.add('visible');
-  phoneTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  renderPhoneMessages();
-  ipcRenderer.send('set-ignore-mouse', false);
-  if (tab === 'chat') unreadChat = 0;
-  if (tab === 'whisper') unreadWhisper = 0;
-  if (unreadChat === 0 && unreadWhisper === 0) hideAlert();
-}
-
-phoneChatClose.addEventListener('click', () => {
-  phoneChat.classList.remove('visible');
-  ipcRenderer.send('set-ignore-mouse', true);
-});
-
-phoneTabs.forEach(tab => {
-  tab.addEventListener('click', () => openPhoneChat(tab.dataset.tab));
-});
-
-function renderPhoneMessages() {
-  phoneMessages.innerHTML = '';
-  const log = phoneTab === 'chat' ? chatHistory : whisperHistory;
-
-  log.forEach(msg => {
-    const div = document.createElement('div');
-    const isMine = msg.id === socket?.id || msg.fromId === socket?.id;
-    div.className = 'phone-msg ' + (isMine ? 'mine' : 'other');
-
-    const nameDiv = !isMine ? `<div class="phone-msg-name">${msg.name || msg.fromName}</div>` : '';
-    const time = new Date(msg.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-
-    div.innerHTML = `${nameDiv}${msg.message}<div class="phone-msg-time">${time}</div>`;
-    phoneMessages.appendChild(div);
-  });
-
-  phoneMessages.scrollTop = phoneMessages.scrollHeight;
-}
-
-function sendPhoneMessage() {
-  const msg = phoneInput.value.trim();
-  if (!msg || !socket) return;
-  if (phoneTab === 'chat') {
-    socket.emit('chat', { message: msg });
-  }
-  phoneInput.value = '';
-}
-
-phoneSend.addEventListener('click', sendPhoneMessage);
-phoneInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') sendPhoneMessage();
-});
-
-// ════════════════════════════════════════════
-//  랜덤 걷기
+//  랜덤 걷기 + 어텐션 모드
 // ════════════════════════════════════════════
 let walkTimer = 0;
 function randomWalk() {
-  const r = Math.random();
-  if (r < 0.4) {
+  if (Math.random() < 0.4) {
     myChar.state = 'walk';
     myChar.dir = Math.random() < 0.5 ? 1 : -1;
     myChar.vx = myChar.dir * 1.5;
     walkTimer = 60 + Math.random() * 120;
   } else {
-    myChar.state = 'idle';
-    myChar.vx = 0;
+    myChar.state = 'idle'; myChar.vx = 0;
     walkTimer = 60 + Math.random() * 180;
   }
 }
 
-// ════════════════════════════════════════════
-//  어텐션 모드 — 마우스 쫓아가기 + 잡기
-//  조건: 귓속말 5+ OR 전체 30+
-//  트리거: 3초간 클릭/드래그/움직임 모두 없을 때
-// ════════════════════════════════════════════
 function updateAttentionMode() {
   if (!isAttentionMode()) return false;
-  if (myChar.isGrabbed || myChar.forcedGrab) return false;
-  if (myChar.y < FLOOR_Y) return false;
+  if (myChar.isGrabbed || myChar.forcedGrab || myChar.y < FLOOR_Y) return false;
 
-  const charCenterX = myChar.x + CHAR_SIZE / 2;
-  const targetX = mousePos.x;
-  const dist = Math.abs(targetX - charCenterX);
-  const now = Date.now();
-
-  // 3초간 아무 활동 없으면 idle 판정
-  mouseIsIdle = (now - lastActivityTime) > MOUSE_IDLE_TIME;
+  const cx = myChar.x + CHAR_SIZE / 2;
+  const dist = Math.abs(mousePos.x - cx);
+  mouseIsIdle = (Date.now() - lastActivityTime) > MOUSE_IDLE_TIME;
 
   if (dist > CHAR_SIZE / 2) {
     myChar.state = 'walk';
-    myChar.dir = targetX > charCenterX ? 1 : -1;
+    myChar.dir = mousePos.x > cx ? 1 : -1;
     myChar.vx = myChar.dir * CHASE_SPEED;
   } else {
     myChar.vx = 0;
-
     if (mouseIsIdle && !hasGrabbedMouse) {
       hasGrabbedMouse = true;
-      myChar.state = 'grabbed';
-      myChar.attentionGrab = true;
-      myChar.forcedGrab = true;
-
+      myChar.state = 'grabbed'; myChar.attentionGrab = true; myChar.forcedGrab = true;
       myChar.x = mousePos.x - CHAR_SIZE / 2;
       myChar.y = mousePos.y - CHAR_SIZE / 2;
-
-      setTimeout(() => {
-        showMyMenu(mousePos.x, mousePos.y);
-      }, 500);
+      setTimeout(() => openPhone('chat'), 500);
     } else if (!mouseIsIdle) {
       myChar.state = 'idle';
     }
   }
-
   return true;
 }
 
@@ -661,33 +572,24 @@ function updateAttentionMode() {
 //  메인 루프
 // ════════════════════════════════════════════
 let lastTime = 0;
-
 function loop(ts) {
-  const dt = ts - lastTime;
-  lastTime = ts;
+  const dt = ts - lastTime; lastTime = ts;
 
   if (!myChar.isGrabbed && !myChar.forcedGrab) {
     if (myChar.y < FLOOR_Y) {
-      myChar.vy += GRAVITY;
-      myChar.state = 'fall';
+      myChar.vy += GRAVITY; myChar.state = 'fall';
     } else {
-      myChar.y = FLOOR_Y;
-      myChar.vy = 0;
-
+      myChar.y = FLOOR_Y; myChar.vy = 0;
       if (myChar.state === 'fall') {
         myChar.state = 'land';
         setTimeout(() => { myChar.state = 'idle'; randomWalk(); }, 300);
       }
-
-      const isAttention = updateAttentionMode();
-      if (!isAttention) {
-        walkTimer -= 1;
+      if (!updateAttentionMode()) {
+        walkTimer--;
         if (walkTimer <= 0 && myChar.state !== 'land') randomWalk();
       }
-
       myChar.x += myChar.vx;
     }
-
     myChar.y += myChar.vy;
     myChar.x = Math.max(0, Math.min(window.innerWidth - CHAR_SIZE, myChar.x));
     myChar.y = Math.min(FLOOR_Y, myChar.y);
@@ -699,13 +601,11 @@ function loop(ts) {
   myChar.frameTimer += dt;
   if (myChar.frameTimer > 1000 / FPS) {
     myChar.frameTimer = 0;
-    const frames = ANIM_FRAMES[myChar.state] || ANIM_FRAMES.idle;
-    myChar.frame = (myChar.frame + 1) % frames;
+    myChar.frame = (myChar.frame + 1) % (ANIM_FRAMES[myChar.state] || 2);
   }
 
   renderChar(myCtx, myEl, myChar);
-  updateAlertPos();
-  updateBubbles();
+  updateAlertPos(); updateBubbles();
 
   Object.values(otherChars).forEach(c => {
     if (c.ctx) {
@@ -717,14 +617,9 @@ function loop(ts) {
 
   if (socket && socket.connected) {
     socket.volatile.emit('move', {
-      x: myChar.x,
-      y: myChar.y,
-      state: myChar.state,
-      dir: myChar.dir,
-      frame: myChar.frame,
+      x: myChar.x, y: myChar.y, state: myChar.state, dir: myChar.dir, frame: myChar.frame,
     });
   }
-
   requestAnimationFrame(loop);
 }
 
@@ -735,70 +630,55 @@ let socket;
 
 function connectSocket(roomCode, userName) {
   myChar.name = userName;
+  currentRoom = roomCode;
   socket = io(SERVER_URL);
 
   socket.on('connect', () => {
-    console.log('연결됨:', socket.id);
     socket.emit('join', { room: roomCode, name: userName, parts: myChar.parts });
   });
 
   socket.on('user-joined', ({ id, name, parts }) => {
     if (otherChars[id]) return;
-
     const el = document.createElement('canvas');
-    el.width = CHAR_SIZE;
-    el.height = CHAR_SIZE;
+    el.width = CHAR_SIZE; el.height = CHAR_SIZE;
     el.className = 'character';
-    el.style.width = CHAR_SIZE + 'px';
-    el.style.height = CHAR_SIZE + 'px';
+    el.style.width = CHAR_SIZE + 'px'; el.style.height = CHAR_SIZE + 'px';
     document.body.appendChild(el);
-
     const nameEl = document.createElement('div');
-    nameEl.className = 'nameplate';
-    nameEl.textContent = name;
+    nameEl.className = 'nameplate'; nameEl.textContent = name;
     document.body.appendChild(nameEl);
 
     otherChars[id] = {
-      x: Math.random() * (window.innerWidth - CHAR_SIZE),
-      y: FLOOR_Y,
-      vx: 0, vy: 0,
-      state: 'idle', dir: 1, frame: 0, frameTimer: 0,
-      name,
-      parts: parts || {},
-      el, ctx: el.getContext('2d'), nameEl,
+      x: Math.random() * (window.innerWidth - CHAR_SIZE), y: FLOOR_Y,
+      vx: 0, vy: 0, state: 'idle', dir: 1, frame: 0, frameTimer: 0,
+      name, parts: parts || {}, el, ctx: el.getContext('2d'), nameEl,
     };
 
     el.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       mouseDownPos = { x: e.clientX, y: e.clientY };
-      mouseDownTime = Date.now();
       dragTarget = id;
       dragOffset.x = e.clientX - otherChars[id].x;
       dragOffset.y = e.clientY - otherChars[id].y;
       isDragging = false;
       ipcRenderer.send('set-ignore-mouse', false);
     });
+
+    updateLobbyUI();
   });
 
-  socket.on('user-parts-updated', ({ id, parts }) => {
-    if (otherChars[id]) otherChars[id].parts = parts;
-  });
+  socket.on('user-parts-updated', ({ id, parts }) => { if (otherChars[id]) otherChars[id].parts = parts; });
 
   socket.on('user-moved', ({ id, x, y, state, dir, frame }) => {
-    if (otherChars[id]) {
-      otherChars[id].x = x;
-      otherChars[id].y = y;
-      otherChars[id].state = state;
-      otherChars[id].dir = dir;
-      otherChars[id].frame = frame;
-    }
+    if (!otherChars[id]) return;
+    Object.assign(otherChars[id], { x, y, state, dir, frame });
   });
 
   socket.on('user-left', ({ id }) => {
     if (otherChars[id]) {
-      otherChars[id].el.remove();
-      otherChars[id].nameEl.remove();
+      otherChars[id].el.remove(); otherChars[id].nameEl.remove();
       delete otherChars[id];
+      updateLobbyUI();
     }
   });
 
@@ -807,14 +687,11 @@ function connectSocket(roomCode, userName) {
     if (data.id === socket.id) {
       createTrackedBubble(() => ({ x: myChar.x, y: myChar.y }), data.message, 'chat');
     } else if (otherChars[data.id]) {
-      const c = otherChars[data.id];
-      createTrackedBubble(() => ({ x: c.x, y: c.y }), data.message, 'chat');
-      unreadChat++;
-      showAlert();
+      createTrackedBubble(() => ({ x: otherChars[data.id].x, y: otherChars[data.id].y }), data.message, 'chat');
+      unreadChat++; showAlert();
     }
-    if (phoneChat.classList.contains('visible') && phoneTab === 'chat') {
-      renderPhoneMessages();
-      unreadChat = 0;
+    if (phone.classList.contains('visible') && currentPage === 'chat' && chatSubTab === 'all') {
+      renderChatMessages(); unreadChat = 0;
     }
   });
 
@@ -823,57 +700,31 @@ function connectSocket(roomCode, userName) {
     if (data.fromId === socket.id) {
       createTrackedBubble(() => ({ x: myChar.x, y: myChar.y }), data.message, 'whisper');
     } else if (otherChars[data.fromId]) {
-      const c = otherChars[data.fromId];
-      createTrackedBubble(() => ({ x: c.x, y: c.y }), data.message, 'whisper');
-      unreadWhisper++;
-      showAlert();
+      createTrackedBubble(() => ({ x: otherChars[data.fromId].x, y: otherChars[data.fromId].y }), data.message, 'whisper');
+      unreadWhisper++; showAlert();
     }
-    if (phoneChat.classList.contains('visible') && phoneTab === 'whisper') {
-      renderPhoneMessages();
-      unreadWhisper = 0;
+    if (phone.classList.contains('visible') && currentPage === 'chat' && chatSubTab === 'whisper') {
+      renderChatMessages(); unreadWhisper = 0;
     }
   });
 
   socket.on('chat-history', (log) => { chatHistory = log; });
   socket.on('whisper-history', (log) => { whisperHistory = log; });
 
-  socket.on('force-grabbed', ({ grabbedBy }) => {
-    myChar.forcedGrab = true;
-    myChar.state = 'grabbed';
-    myChar.vx = 0;
-    myChar.vy = 0;
-  });
-
+  socket.on('force-grabbed', () => { myChar.forcedGrab = true; myChar.state = 'grabbed'; myChar.vx = 0; myChar.vy = 0; });
   socket.on('char-dragged', ({ targetId, x, y }) => {
-    if (targetId === socket.id) {
-      myChar.x = x;
-      myChar.y = y;
-    } else if (otherChars[targetId]) {
-      otherChars[targetId].x = x;
-      otherChars[targetId].y = y;
-      otherChars[targetId].state = 'grabbed';
-    }
+    if (targetId === socket.id) { myChar.x = x; myChar.y = y; }
+    else if (otherChars[targetId]) { otherChars[targetId].x = x; otherChars[targetId].y = y; otherChars[targetId].state = 'grabbed'; }
   });
-
   socket.on('force-thrown', ({ vx, vy }) => {
-    myChar.forcedGrab = false;
-    myChar.attentionGrab = false;
-    myChar.state = 'fall';
-    myChar.vx = vx;
-    myChar.vy = vy;
+    myChar.forcedGrab = false; myChar.attentionGrab = false; myChar.state = 'fall'; myChar.vx = vx; myChar.vy = vy;
   });
-
-  socket.on('char-thrown', ({ targetId }) => {
-    if (otherChars[targetId]) otherChars[targetId].state = 'fall';
-  });
-
-  socket.on('char-grabbed', ({ targetId }) => {
-    if (otherChars[targetId]) otherChars[targetId].state = 'grabbed';
-  });
+  socket.on('char-thrown', ({ targetId }) => { if (otherChars[targetId]) otherChars[targetId].state = 'fall'; });
+  socket.on('char-grabbed', ({ targetId }) => { if (otherChars[targetId]) otherChars[targetId].state = 'grabbed'; });
 }
 
 // ════════════════════════════════════════════
-//  시작!
+//  시작 — 로비에서 시작
 // ════════════════════════════════════════════
-connectSocket('room01', 'guest');
+openPhone('lobby');
 requestAnimationFrame(loop);
