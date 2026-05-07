@@ -15,7 +15,6 @@
       font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
     }
 
-    /* ─── 캐릭터 ─── */
     .character {
       position: absolute;
       image-rendering: auto;
@@ -24,7 +23,6 @@
     }
     .character.grabbed { cursor: grabbing; }
 
-    /* ─── 이름표 ─── */
     .nameplate {
       position: absolute;
       background: rgba(0,0,0,0.6);
@@ -37,7 +35,6 @@
       pointer-events: none;
     }
 
-    /* ─── 느낌표 알림 ─── */
     .alert-badge {
       position: absolute;
       width: 20px;
@@ -57,7 +54,6 @@
       to { transform: translateY(-5px); }
     }
 
-    /* ─── 말풍선 ─── */
     .bubble {
       position: absolute;
       background: #fff;
@@ -89,7 +85,6 @@
       to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
 
-    /* ─── 팝업 메뉴 ─── */
     .popup-menu {
       position: absolute;
       background: #1a1a22;
@@ -113,7 +108,6 @@
     .popup-menu-item:last-child { border-bottom: none; }
     .popup-menu-item:hover { background: #2a2a35; }
 
-    /* ─── 채팅 입력 ─── */
     .chat-input-wrap {
       position: fixed;
       bottom: 80px;
@@ -142,7 +136,6 @@
       color: #888;
     }
 
-    /* ─── 핸드폰 채팅 기록창 ─── */
     .phone-chat {
       position: fixed;
       right: 30px;
@@ -234,7 +227,6 @@
       font-size: 14px;
     }
 
-    /* ─── 꾸미기 패널 ─── */
     .customizer {
       position: fixed;
       left: 30px;
@@ -247,60 +239,54 @@
       z-index: 1000;
       box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     }
-    .customizer-title {
-      color: #fff;
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 14px;
-      text-align: center;
-    }
-    .customizer-row {
-      margin-bottom: 10px;
-    }
-    .customizer-label {
-      color: #888;
-      font-size: 11px;
-      margin-bottom: 4px;
-    }
-    .customizer-options {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
+    .customizer-title { color: #fff; font-size: 15px; font-weight: 600; margin-bottom: 14px; text-align: center; }
+    .customizer-row { margin-bottom: 10px; }
+    .customizer-label { color: #888; font-size: 11px; margin-bottom: 4px; }
+    .customizer-options { display: flex; gap: 4px; flex-wrap: wrap; }
     .customizer-btn {
-      padding: 4px 10px;
-      font-size: 11px;
-      border-radius: 99px;
-      border: 1px solid #333;
-      background: #222;
-      color: #aaa;
-      cursor: pointer;
-      transition: all 0.15s;
+      padding: 4px 10px; font-size: 11px; border-radius: 99px;
+      border: 1px solid #333; background: #222; color: #aaa;
+      cursor: pointer; transition: all 0.15s;
     }
-    .customizer-btn:hover {
-      border-color: #6C8EBF;
-      color: #fff;
-    }
-    .customizer-btn.active {
-      background: #6C8EBF;
-      border-color: #6C8EBF;
-      color: #fff;
-    }
+    .customizer-btn:hover { border-color: #6C8EBF; color: #fff; }
+    .customizer-btn.active { background: #6C8EBF; border-color: #6C8EBF; color: #fff; }
     .customizer-close {
-      width: 100%;
-      margin-top: 12px;
-      padding: 8px;
-      border-radius: 10px;
-      border: 1px solid #333;
-      background: none;
-      color: #888;
-      cursor: pointer;
-      font-size: 12px;
+      width: 100%; margin-top: 12px; padding: 8px; border-radius: 10px;
+      border: 1px solid #333; background: none; color: #888; cursor: pointer; font-size: 12px;
     }
     .customizer-close:hover { background: #2a2a35; color: #fff; }
+
+    /* ─── 핀 버튼 ─── */
+    .pin-btn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid #444;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      z-index: 1001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .pin-btn:hover { background: rgba(0,0,0,0.8); }
+    .pin-btn.off {
+      background: rgba(100,100,100,0.3);
+      border-color: #555;
+      opacity: 0.6;
+    }
   </style>
 </head>
 <body>
+
+  <!-- 핀(항상 위에) 토글 -->
+  <button class="pin-btn" id="pinBtn" title="항상 위에 (켜짐)">📌</button>
 
   <!-- 채팅 입력 -->
   <div class="chat-input-wrap" id="chatInputWrap">

@@ -11,9 +11,12 @@ const GRAVITY = 0.5;
 const FLOOR_Y = window.innerHeight - CHAR_SIZE;
 const BUBBLE_DURATION = 4000;
 const CLICK_THRESHOLD = 5;
-const ATTENTION_THRESHOLD = 10;   // 알림 몇 개부터 쫓아다니기
-const MOUSE_IDLE_TIME = 2000;     // 마우스 멈춤 판정 (ms)
-const CHASE_SPEED = 3;            // 쫓아가는 속도
+
+// 어텐션 모드 설정
+const WHISPER_ATTENTION = 5;       // 귓속말 5개 이상
+const CHAT_ATTENTION = 30;         // 전체채팅 30개 이상
+const MOUSE_IDLE_TIME = 3000;      // 3초 동안 클릭/드래그/움직임 없을 때
+const CHASE_SPEED = 3;
 
 // ════════════════════════════════════════════
 //  레이어 기반 파츠 시스템
@@ -38,7 +41,6 @@ const ANIM_FRAMES = {
   thrown:  1,
 };
 
-// ─── 이미지 캐시 ────────────────────────────
 const imageCache = {};
 
 function getPartImage(layer, option, action) {
@@ -65,6 +67,7 @@ const myChar = {
   frameTimer: 0,
   isGrabbed: false,
   forcedGrab: false,
+  attentionGrab: false,
   name: 'me',
   parts: {
     body:      'default',
@@ -84,23 +87,22 @@ let whisperHistory = [];
 
 // ════════════════════════════════════════════
 //  마우스 추적 (어텐션 모드용)
+//  3초간 클릭/드래그/움직임 전부 없어야 idle 판정
 // ════════════════════════════════════════════
 let mousePos = { x: window.innerWidth / 2, y: FLOOR_Y };
-let lastMouseMoveTime = Date.now();
+let lastActivityTime = Date.now();  // 모든 마우스 활동 (이동+클릭+드래그)
 let mouseIsIdle = false;
-let hasGrabbedMouse = false;  // 이번 어텐션 모드에서 이미 잡았는지
+let hasGrabbedMouse = false;
 
-// 전역 마우스 위치 추적
+// 마우스 움직임
 document.addEventListener('mousemove', (e) => {
   mousePos.x = e.clientX;
   mousePos.y = e.clientY;
-  lastMouseMoveTime = Date.now();
+  lastActivityTime = Date.now();
 
-  // 마우스 움직이면 잡기 해제
   if (mouseIsIdle && hasGrabbedMouse) {
     mouseIsIdle = false;
-    // 잡기 해제 → 떨어짐
-    if (myChar.forcedGrab && myChar.attentionGrab) {
+    if (myChar.attentionGrab) {
       myChar.attentionGrab = false;
       myChar.forcedGrab = false;
       myChar.state = 'fall';
@@ -110,13 +112,37 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-function getTotalUnread() {
-  return unreadChat + unreadWhisper;
-}
+// 마우스 클릭도 활동으로 감지
+document.addEventListener('mousedown', () => {
+  lastActivityTime = Date.now();
+});
+
+// 드래그도 활동으로 감지 (mousemove에서 이미 됨)
 
 function isAttentionMode() {
-  return getTotalUnread() >= ATTENTION_THRESHOLD;
+  return unreadWhisper >= WHISPER_ATTENTION || unreadChat >= CHAT_ATTENTION;
 }
+
+// ════════════════════════════════════════════
+//  핀(항상 위에) 토글 버튼
+// ════════════════════════════════════════════
+const pinBtn = document.getElementById('pinBtn');
+let isPinned = true;
+
+pinBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  ipcRenderer.send('toggle-pin');
+});
+
+ipcRenderer.on('pin-status', (event, pinned) => {
+  isPinned = pinned;
+  pinBtn.textContent = pinned ? '📌' : '📌❌';
+  pinBtn.title = pinned ? '항상 위에 (켜짐)' : '항상 위에 (꺼짐)';
+  pinBtn.classList.toggle('off', !pinned);
+});
+
+// 시작할 때 상태 확인
+ipcRenderer.send('get-pin-status');
 
 // ════════════════════════════════════════════
 //  내 캐릭터 DOM
@@ -132,7 +158,6 @@ myEl.style.top = myChar.y + 'px';
 document.body.appendChild(myEl);
 const myCtx = myEl.getContext('2d');
 
-// 느낌표 알림 뱃지
 const alertBadge = document.createElement('div');
 alertBadge.className = 'alert-badge';
 alertBadge.textContent = '!';
@@ -207,7 +232,6 @@ myEl.addEventListener('mousedown', (e) => {
   isDragging = false;
   ipcRenderer.send('set-ignore-mouse', false);
 
-  // 어텐션 잡기 해제
   if (myChar.attentionGrab) {
     myChar.attentionGrab = false;
     myChar.forcedGrab = false;
@@ -491,16 +515,15 @@ function updateBubbles() {
 // ════════════════════════════════════════════
 function showAlert() {
   alertBadge.style.display = 'block';
-  // 어텐션 모드 진입 시 뱃지에 숫자 표시
-  const total = getTotalUnread();
-  alertBadge.textContent = total >= ATTENTION_THRESHOLD ? '!!' : '!';
-  alertBadge.style.background = total >= ATTENTION_THRESHOLD ? '#ff2020' : '#ff4757';
+  const attention = isAttentionMode();
+  alertBadge.textContent = attention ? '!!' : '!';
+  alertBadge.style.background = attention ? '#ff2020' : '#ff4757';
 }
 function hideAlert() {
   alertBadge.style.display = 'none';
   unreadChat = 0;
   unreadWhisper = 0;
-  hasGrabbedMouse = false;  // 리셋
+  hasGrabbedMouse = false;
 }
 function updateAlertPos() {
   alertBadge.style.left = (myChar.x + CHAR_SIZE - 5) + 'px';
@@ -591,42 +614,38 @@ function randomWalk() {
 
 // ════════════════════════════════════════════
 //  어텐션 모드 — 마우스 쫓아가기 + 잡기
+//  조건: 귓속말 5+ OR 전체 30+
+//  트리거: 3초간 클릭/드래그/움직임 모두 없을 때
 // ════════════════════════════════════════════
 function updateAttentionMode() {
   if (!isAttentionMode()) return false;
   if (myChar.isGrabbed || myChar.forcedGrab) return false;
-  if (myChar.y < FLOOR_Y) return false; // 공중이면 무시
+  if (myChar.y < FLOOR_Y) return false;
 
   const charCenterX = myChar.x + CHAR_SIZE / 2;
   const targetX = mousePos.x;
   const dist = Math.abs(targetX - charCenterX);
   const now = Date.now();
 
-  // 마우스가 멈춤 판정
-  mouseIsIdle = (now - lastMouseMoveTime) > MOUSE_IDLE_TIME;
+  // 3초간 아무 활동 없으면 idle 판정
+  mouseIsIdle = (now - lastActivityTime) > MOUSE_IDLE_TIME;
 
-  // 마우스 쫓아가기
   if (dist > CHAR_SIZE / 2) {
-    // 아직 멀면 빠르게 쫓아감
     myChar.state = 'walk';
     myChar.dir = targetX > charCenterX ? 1 : -1;
     myChar.vx = myChar.dir * CHASE_SPEED;
   } else {
-    // 가까이 왔을 때
     myChar.vx = 0;
 
     if (mouseIsIdle && !hasGrabbedMouse) {
-      // 마우스가 멈추고 + 아직 안 잡았으면 → 강제 잡기!
       hasGrabbedMouse = true;
       myChar.state = 'grabbed';
       myChar.attentionGrab = true;
       myChar.forcedGrab = true;
 
-      // 마우스 커서 위치에 달라붙기
       myChar.x = mousePos.x - CHAR_SIZE / 2;
       myChar.y = mousePos.y - CHAR_SIZE / 2;
 
-      // 강제로 메뉴 열기 (채팅 읽으라고!)
       setTimeout(() => {
         showMyMenu(mousePos.x, mousePos.y);
       }, 500);
@@ -635,7 +654,7 @@ function updateAttentionMode() {
     }
   }
 
-  return true; // 어텐션 모드 활성
+  return true;
 }
 
 // ════════════════════════════════════════════
@@ -647,7 +666,6 @@ function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
 
-  // 물리
   if (!myChar.isGrabbed && !myChar.forcedGrab) {
     if (myChar.y < FLOOR_Y) {
       myChar.vy += GRAVITY;
@@ -661,7 +679,6 @@ function loop(ts) {
         setTimeout(() => { myChar.state = 'idle'; randomWalk(); }, 300);
       }
 
-      // 어텐션 모드가 아닐 때만 랜덤 걷기
       const isAttention = updateAttentionMode();
       if (!isAttention) {
         walkTimer -= 1;
@@ -675,12 +692,10 @@ function loop(ts) {
     myChar.x = Math.max(0, Math.min(window.innerWidth - CHAR_SIZE, myChar.x));
     myChar.y = Math.min(FLOOR_Y, myChar.y);
   } else if (myChar.attentionGrab) {
-    // 어텐션 잡기 중에는 마우스 따라다님
     myChar.x = mousePos.x - CHAR_SIZE / 2;
     myChar.y = mousePos.y - CHAR_SIZE / 2;
   }
 
-  // 프레임 애니메이션
   myChar.frameTimer += dt;
   if (myChar.frameTimer > 1000 / FPS) {
     myChar.frameTimer = 0;
@@ -688,7 +703,6 @@ function loop(ts) {
     myChar.frame = (myChar.frame + 1) % frames;
   }
 
-  // 렌더
   renderChar(myCtx, myEl, myChar);
   updateAlertPos();
   updateBubbles();
@@ -701,7 +715,6 @@ function loop(ts) {
     }
   });
 
-  // 서버에 위치 전송
   if (socket && socket.connected) {
     socket.volatile.emit('move', {
       x: myChar.x,
@@ -862,6 +875,5 @@ function connectSocket(roomCode, userName) {
 // ════════════════════════════════════════════
 //  시작!
 // ════════════════════════════════════════════
-// TODO: 로비 UI로 방코드/이름/커스텀 입력받기
 connectSocket('room01', 'guest');
 requestAnimationFrame(loop);
