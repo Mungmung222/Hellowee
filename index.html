@@ -6,37 +6,27 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: transparent; overflow: hidden; width: 100vw; height: 100vh; position: relative; font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
-
     .character { position: absolute; image-rendering: auto; cursor: grab; user-select: none; }
     .character.grabbed { cursor: grabbing; }
     .nameplate { position: absolute; background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 99px; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
-
     .alert-badge { position: absolute; width: 20px; height: 20px; background: #ff4757; color: #fff; font-size: 13px; font-weight: 700; border-radius: 50%; text-align: center; line-height: 20px; pointer-events: none; animation: alert-bounce 0.6s ease infinite alternate; }
     @keyframes alert-bounce { from{transform:translateY(0)} to{transform:translateY(-5px)} }
-
-    /* 말풍선 */
     .bubble { position: absolute; background: #fff; color: #333; font-size: 12px; padding: 6px 10px; border-radius: 12px; max-width: 160px; word-break: break-word; pointer-events: none; transform: translateX(-50%); box-shadow: 0 2px 8px rgba(0,0,0,0.15); animation: bubble-in 0.2s ease; }
     .bubble::after { content:''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #fff; }
     .bubble.whisper { background: #dfe6fd; color: #3a3d7a; }
     .bubble.whisper::after { border-top-color: #dfe6fd; }
     @keyframes bubble-in { from{opacity:0;transform:translateX(-50%) translateY(5px) scale(0.9)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
-
-    /* 빈 말풍선 (클릭 가능) */
     .empty-bubble { position: absolute; background: #fff; color: #999; font-size: 12px; padding: 8px 14px; border-radius: 14px; transform: translateX(-50%); box-shadow: 0 4px 16px rgba(0,0,0,0.2); cursor: pointer; animation: bubble-in 0.2s ease; z-index: 997; transition: background 0.15s; }
     .empty-bubble:hover { background: #f0f4ff; color: #6C8EBF; }
     .empty-bubble::after { content:''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #fff; }
     .empty-bubble.whisper { background: #eee8ff; color: #9673A6; }
     .empty-bubble.whisper:hover { background: #dfe0ff; }
     .empty-bubble.whisper::after { border-top-color: #eee8ff; }
-
-    /* 퀵 채팅 */
     .quick-chat { position: absolute; display: none; z-index: 998; }
     .quick-chat.visible { display: flex; flex-direction: column; gap: 4px; }
     .quick-chat input { width: 200px; padding: 8px 12px; border-radius: 99px; border: 1px solid #444; background: #1a1a22; color: #fff; font-size: 12px; outline: none; }
     .quick-chat input:focus { border-color: #6C8EBF; }
     .quick-chat-label { font-size: 9px; color: #888; margin-left: 4px; }
-
-    /* 핸드폰 UI */
     .phone { position: fixed; right: 24px; bottom: 24px; width: 300px; height: 480px; background: #0d0d12; border-radius: 32px; border: 3px solid #222; display: none; flex-direction: column; overflow: hidden; z-index: 1000; box-shadow: 0 16px 50px rgba(0,0,0,0.7); }
     .phone.visible { display: flex; }
     .phone-topbar { padding: 14px 16px 8px; background: #111118; display: flex; align-items: center; justify-content: space-between; }
@@ -54,8 +44,6 @@
     .phone-page.active { display: flex; }
     .phone-page::-webkit-scrollbar { width: 3px; }
     .phone-page::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
-
-    /* 채팅 */
     .chat-sub-tabs { display: flex; border-bottom: 1px solid #1e1e28; }
     .chat-sub-tab { flex: 1; padding: 8px; text-align: center; font-size: 11px; color: #555; cursor: pointer; border-bottom: 2px solid transparent; }
     .chat-sub-tab.active { color: #fff; border-bottom-color: #6C8EBF; }
@@ -71,8 +59,6 @@
     .chat-input-bar input { flex: 1; padding: 8px 12px; border-radius: 99px; border: 1px solid #2a2a35; background: #1a1a22; color: #fff; font-size: 12px; outline: none; }
     .chat-input-bar input:focus { border-color: #6C8EBF; }
     .chat-input-bar button { background: #6C8EBF; color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
-
-    /* 로비 */
     .lobby-section { padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
     .lobby-card { background: #1a1a22; border: 1px solid #2a2a35; border-radius: 16px; padding: 16px; }
     .lobby-card-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
@@ -88,8 +74,6 @@
     .lobby-members { margin-top: 10px; font-size: 11px; color: #888; }
     .lobby-member { padding: 4px 0; display: flex; align-items: center; gap: 6px; }
     .lobby-member-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
-
-    /* 꾸미기 */
     .custom-section { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
     .custom-preview { width: 96px; height: 96px; margin: 0 auto 8px; border-radius: 16px; background: #1a1a22; border: 2px dashed #2a2a35; display: flex; align-items: center; justify-content: center; font-size: 40px; }
     .custom-label { font-size: 10px; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
@@ -97,8 +81,6 @@
     .custom-btn { padding: 5px 11px; font-size: 11px; border-radius: 99px; border: 1px solid #2a2a35; background: #1a1a22; color: #888; cursor: pointer; }
     .custom-btn:hover { border-color: #6C8EBF; color: #ddd; }
     .custom-btn.active { background: #6C8EBF; border-color: #6C8EBF; color: #fff; }
-
-    /* 설정 */
     .settings-section { padding: 16px; display: flex; flex-direction: column; gap: 2px; }
     .settings-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #1a1a22; border-radius: 12px; margin-bottom: 6px; }
     .settings-item-left { display: flex; align-items: center; gap: 10px; }
@@ -114,12 +96,10 @@
   </style>
 </head>
 <body>
-
   <div class="quick-chat" id="quickChat">
     <span class="quick-chat-label" id="quickChatLabel">💬 전체</span>
     <input type="text" id="quickChatInput" placeholder="메시지..." autocomplete="off" />
   </div>
-
   <div class="phone" id="phone">
     <div class="phone-topbar">
       <span class="phone-title">🐾 Hellowee</span>
@@ -141,7 +121,9 @@
         <div class="lobby-section">
           <div class="lobby-card">
             <div class="lobby-card-title">📡 현재 방</div>
-            <div class="lobby-room-info" id="lobbyRoomInfo">
+            <div class="lobby-room-info">
+              <div class="lobby-room-label">방 이름</div>
+              <div id="lobbyRoomTitle" style="font-size:14px;font-weight:700;color:#fff;text-align:center;margin:4px 0;">---</div>
               <div class="lobby-room-label">방 코드</div>
               <div class="lobby-room-code" id="lobbyRoomCode">---</div>
               <div class="lobby-members" id="lobbyMembers"></div>
@@ -149,14 +131,17 @@
           </div>
           <div class="lobby-card">
             <div class="lobby-card-title">✨ 새 방 만들기</div>
+            <input class="lobby-input" id="lobbyRoomName" placeholder="방 이름" maxlength="20" />
             <input class="lobby-input" id="lobbyMyName" placeholder="내 이름" maxlength="12" />
             <button class="lobby-btn primary" id="lobbyCreate">방 만들기</button>
           </div>
           <div class="lobby-card">
             <div class="lobby-card-title">🚪 방 입장</div>
-            <input class="lobby-input" id="lobbyCode" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-size:18px;font-weight:700;" />
+            <input class="lobby-input" id="lobbyJoinRoomName" placeholder="방 이름" maxlength="20" />
+            <input class="lobby-input" id="lobbyCode" placeholder="방 코드" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-size:18px;font-weight:700;" />
             <input class="lobby-input" id="lobbyJoinName" placeholder="내 이름" maxlength="12" />
             <button class="lobby-btn primary" id="lobbyJoin">입장하기</button>
+            <div id="lobbyError" style="color:#ff4757;font-size:11px;text-align:center;margin-top:8px;"></div>
           </div>
         </div>
       </div>
@@ -167,18 +152,9 @@
       </div>
       <div class="phone-page" id="pagesettings">
         <div class="settings-section">
-          <div class="settings-item">
-            <div class="settings-item-left"><span class="settings-icon">📌</span><div><div class="settings-label">항상 위에 고정</div><div class="settings-desc">다른 창 위에 캐릭터 표시</div></div></div>
-            <div class="toggle on" id="togglePin"></div>
-          </div>
-          <div class="settings-item">
-            <div class="settings-item-left"><span class="settings-icon">⚡</span><div><div class="settings-label">어텐션 모드</div><div class="settings-desc">알림 쌓이면 마우스 쫓아감</div></div></div>
-            <div class="toggle on" id="toggleAttention"></div>
-          </div>
-          <div class="settings-item">
-            <div class="settings-item-left"><span class="settings-icon">💬</span><div><div class="settings-label">말풍선 표시</div><div class="settings-desc">실시간 채팅 말풍선</div></div></div>
-            <div class="toggle on" id="toggleBubble"></div>
-          </div>
+          <div class="settings-item"><div class="settings-item-left"><span class="settings-icon">📌</span><div><div class="settings-label">항상 위에 고정</div><div class="settings-desc">다른 창 위에 캐릭터 표시</div></div></div><div class="toggle on" id="togglePin"></div></div>
+          <div class="settings-item"><div class="settings-item-left"><span class="settings-icon">⚡</span><div><div class="settings-label">어텐션 모드</div><div class="settings-desc">알림 쌓이면 마우스 쫓아감</div></div></div><div class="toggle on" id="toggleAttention"></div></div>
+          <div class="settings-item"><div class="settings-item-left"><span class="settings-icon">💬</span><div><div class="settings-label">말풍선 표시</div><div class="settings-desc">실시간 채팅 말풍선</div></div></div><div class="toggle on" id="toggleBubble"></div></div>
           <div class="settings-divider"></div>
           <div class="settings-item" id="settingsLeave" style="cursor:pointer;"><div class="settings-item-left"><span class="settings-icon">🚪</span><div><div class="settings-label" style="color:#ff4757;">방 나가기</div></div></div></div>
           <div class="settings-version">Hellowee v1.0.0 🐾</div>
@@ -192,7 +168,6 @@
       <div class="phone-nav-item" data-page="settings"><span class="phone-nav-icon">⚙️</span><span>설정</span></div>
     </div>
   </div>
-
   <script src="renderer.js"></script>
 </body>
 </html>
