@@ -5,497 +5,127 @@
   <title>Hellowee</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: transparent; overflow: hidden; width: 100vw; height: 100vh; position: relative; font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
 
-    body {
-      background: transparent;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-    }
-
-    .character {
-      position: absolute;
-      image-rendering: auto;
-      cursor: grab;
-      user-select: none;
-    }
+    .character { position: absolute; image-rendering: auto; cursor: grab; user-select: none; }
     .character.grabbed { cursor: grabbing; }
+    .nameplate { position: absolute; background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 99px; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 
-    .nameplate {
-      position: absolute;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 99px;
-      white-space: nowrap;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
+    .alert-badge { position: absolute; width: 20px; height: 20px; background: #ff4757; color: #fff; font-size: 13px; font-weight: 700; border-radius: 50%; text-align: center; line-height: 20px; pointer-events: none; animation: alert-bounce 0.6s ease infinite alternate; }
+    @keyframes alert-bounce { from{transform:translateY(0)} to{transform:translateY(-5px)} }
 
-    .alert-badge {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      background: #ff4757;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 700;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 20px;
-      pointer-events: none;
-      animation: alert-bounce 0.6s ease infinite alternate;
-    }
-    @keyframes alert-bounce {
-      from { transform: translateY(0); }
-      to { transform: translateY(-5px); }
-    }
-
-    .bubble {
-      position: absolute;
-      background: #fff;
-      color: #333;
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 12px;
-      max-width: 160px;
-      word-break: break-word;
-      pointer-events: none;
-      transform: translateX(-50%);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      animation: bubble-in 0.2s ease;
-    }
-    .bubble::after {
-      content: '';
-      position: absolute;
-      bottom: -6px;
-      left: 50%;
-      transform: translateX(-50%);
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 6px solid #fff;
-    }
+    /* 말풍선 */
+    .bubble { position: absolute; background: #fff; color: #333; font-size: 12px; padding: 6px 10px; border-radius: 12px; max-width: 160px; word-break: break-word; pointer-events: none; transform: translateX(-50%); box-shadow: 0 2px 8px rgba(0,0,0,0.15); animation: bubble-in 0.2s ease; }
+    .bubble::after { content:''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #fff; }
     .bubble.whisper { background: #dfe6fd; color: #3a3d7a; }
     .bubble.whisper::after { border-top-color: #dfe6fd; }
-    @keyframes bubble-in {
-      from { opacity: 0; transform: translateX(-50%) translateY(5px) scale(0.9); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-    }
+    @keyframes bubble-in { from{opacity:0;transform:translateX(-50%) translateY(5px) scale(0.9)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
 
-    /* ─── 핸드폰 UI (통합) ─── */
-    .phone {
-      position: fixed;
-      right: 24px;
-      bottom: 24px;
-      width: 300px;
-      height: 480px;
-      background: #0d0d12;
-      border-radius: 32px;
-      border: 3px solid #222;
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-      z-index: 1000;
-      box-shadow: 0 16px 50px rgba(0,0,0,0.7);
-    }
+    /* 빈 말풍선 (클릭 가능) */
+    .empty-bubble { position: absolute; background: #fff; color: #999; font-size: 12px; padding: 8px 14px; border-radius: 14px; transform: translateX(-50%); box-shadow: 0 4px 16px rgba(0,0,0,0.2); cursor: pointer; animation: bubble-in 0.2s ease; z-index: 997; transition: background 0.15s; }
+    .empty-bubble:hover { background: #f0f4ff; color: #6C8EBF; }
+    .empty-bubble::after { content:''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #fff; }
+    .empty-bubble.whisper { background: #eee8ff; color: #9673A6; }
+    .empty-bubble.whisper:hover { background: #dfe0ff; }
+    .empty-bubble.whisper::after { border-top-color: #eee8ff; }
+
+    /* 퀵 채팅 */
+    .quick-chat { position: absolute; display: none; z-index: 998; }
+    .quick-chat.visible { display: flex; flex-direction: column; gap: 4px; }
+    .quick-chat input { width: 200px; padding: 8px 12px; border-radius: 99px; border: 1px solid #444; background: #1a1a22; color: #fff; font-size: 12px; outline: none; }
+    .quick-chat input:focus { border-color: #6C8EBF; }
+    .quick-chat-label { font-size: 9px; color: #888; margin-left: 4px; }
+
+    /* 핸드폰 UI */
+    .phone { position: fixed; right: 24px; bottom: 24px; width: 300px; height: 480px; background: #0d0d12; border-radius: 32px; border: 3px solid #222; display: none; flex-direction: column; overflow: hidden; z-index: 1000; box-shadow: 0 16px 50px rgba(0,0,0,0.7); }
     .phone.visible { display: flex; }
-
-    /* 상단바 */
-    .phone-topbar {
-      padding: 14px 16px 8px;
-      background: #111118;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .phone-title {
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    .phone-close {
-      background: none;
-      border: none;
-      color: #555;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0 4px;
-    }
+    .phone-topbar { padding: 14px 16px 8px; background: #111118; display: flex; align-items: center; justify-content: space-between; }
+    .phone-title { color: #fff; font-size: 15px; font-weight: 700; }
+    .phone-close { background: none; border: none; color: #555; font-size: 20px; cursor: pointer; }
     .phone-close:hover { color: #fff; }
-
-    /* 탭 네비 (하단) */
-    .phone-nav {
-      display: flex;
-      background: #111118;
-      border-top: 1px solid #1e1e28;
-      padding: 6px 0 10px;
-    }
-    .phone-nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      cursor: pointer;
-      color: #444;
-      font-size: 9px;
-      transition: color 0.15s;
-      position: relative;
-    }
+    .phone-nav { display: flex; background: #111118; border-top: 1px solid #1e1e28; padding: 6px 0 10px; }
+    .phone-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: #444; font-size: 9px; position: relative; }
     .phone-nav-item.active { color: #fff; }
     .phone-nav-icon { font-size: 18px; }
-    .phone-nav-dot {
-      position: absolute;
-      top: 0;
-      right: calc(50% - 14px);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #ff4757;
-      display: none;
-    }
+    .phone-nav-dot { position: absolute; top: 0; right: calc(50% - 14px); width: 6px; height: 6px; border-radius: 50%; background: #ff4757; display: none; }
     .phone-nav-dot.show { display: block; }
-
-    /* 콘텐츠 영역 */
-    .phone-content {
-      flex: 1;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .phone-page {
-      position: absolute;
-      inset: 0;
-      display: none;
-      flex-direction: column;
-      overflow-y: auto;
-    }
+    .phone-content { flex: 1; overflow: hidden; position: relative; }
+    .phone-page { position: absolute; inset: 0; display: none; flex-direction: column; overflow-y: auto; }
     .phone-page.active { display: flex; }
     .phone-page::-webkit-scrollbar { width: 3px; }
     .phone-page::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
 
-    /* ─── 채팅 페이지 ─── */
-    .chat-sub-tabs {
-      display: flex;
-      border-bottom: 1px solid #1e1e28;
-    }
-    .chat-sub-tab {
-      flex: 1;
-      padding: 8px;
-      text-align: center;
-      font-size: 11px;
-      color: #555;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.15s;
-    }
+    /* 채팅 */
+    .chat-sub-tabs { display: flex; border-bottom: 1px solid #1e1e28; }
+    .chat-sub-tab { flex: 1; padding: 8px; text-align: center; font-size: 11px; color: #555; cursor: pointer; border-bottom: 2px solid transparent; }
     .chat-sub-tab.active { color: #fff; border-bottom-color: #6C8EBF; }
-
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
     .chat-messages::-webkit-scrollbar { width: 3px; }
     .chat-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
-
-    .chat-msg {
-      max-width: 82%;
-      padding: 7px 11px;
-      border-radius: 14px;
-      font-size: 12px;
-      line-height: 1.4;
-    }
+    .chat-msg { max-width: 82%; padding: 7px 11px; border-radius: 14px; font-size: 12px; line-height: 1.4; }
     .chat-msg.other { align-self: flex-start; background: #1e1e28; color: #ddd; }
     .chat-msg.mine { align-self: flex-end; background: #6C8EBF; color: #fff; }
     .chat-msg-name { font-size: 9px; color: #666; margin-bottom: 2px; }
     .chat-msg-time { font-size: 8px; color: #444; margin-top: 2px; text-align: right; }
-
-    .chat-input-bar {
-      padding: 8px 10px;
-      background: #111118;
-      border-top: 1px solid #1e1e28;
-      display: flex;
-      gap: 6px;
-    }
-    .chat-input-bar input {
-      flex: 1;
-      padding: 8px 12px;
-      border-radius: 99px;
-      border: 1px solid #2a2a35;
-      background: #1a1a22;
-      color: #fff;
-      font-size: 12px;
-      outline: none;
-    }
+    .chat-input-bar { padding: 8px 10px; background: #111118; border-top: 1px solid #1e1e28; display: flex; gap: 6px; }
+    .chat-input-bar input { flex: 1; padding: 8px 12px; border-radius: 99px; border: 1px solid #2a2a35; background: #1a1a22; color: #fff; font-size: 12px; outline: none; }
     .chat-input-bar input:focus { border-color: #6C8EBF; }
-    .chat-input-bar button {
-      background: #6C8EBF;
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
+    .chat-input-bar button { background: #6C8EBF; color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
 
-    /* ─── 로비 페이지 ─── */
-    .lobby-section {
-      padding: 20px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .lobby-card {
-      background: #1a1a22;
-      border: 1px solid #2a2a35;
-      border-radius: 16px;
-      padding: 16px;
-    }
-    .lobby-card-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .lobby-input {
-      width: 100%;
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 1px solid #2a2a35;
-      background: #111118;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-      margin-bottom: 8px;
-    }
+    /* 로비 */
+    .lobby-section { padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+    .lobby-card { background: #1a1a22; border: 1px solid #2a2a35; border-radius: 16px; padding: 16px; }
+    .lobby-card-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .lobby-input { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #2a2a35; background: #111118; color: #fff; font-size: 13px; outline: none; margin-bottom: 8px; }
     .lobby-input:focus { border-color: #6C8EBF; }
     .lobby-input::placeholder { color: #444; }
-    .lobby-btn {
-      width: 100%;
-      padding: 10px;
-      border-radius: 12px;
-      border: none;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .lobby-btn.primary {
-      background: #6C8EBF;
-      color: #fff;
-    }
+    .lobby-btn { width: 100%; padding: 10px; border-radius: 12px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .lobby-btn.primary { background: #6C8EBF; color: #fff; }
     .lobby-btn.primary:hover { background: #5a7dae; }
-    .lobby-btn.secondary {
-      background: #2a2a35;
-      color: #aaa;
-      margin-top: 6px;
-    }
-    .lobby-btn.secondary:hover { background: #333; color: #fff; }
-    .lobby-room-info {
-      background: #111118;
-      border-radius: 12px;
-      padding: 12px;
-      margin-top: 8px;
-      display: none;
-    }
-    .lobby-room-info.visible { display: block; }
-    .lobby-room-code {
-      font-size: 24px;
-      font-weight: 800;
-      color: #6C8EBF;
-      text-align: center;
-      letter-spacing: 4px;
-      margin: 8px 0;
-    }
-    .lobby-room-label {
-      font-size: 10px;
-      color: #555;
-      text-align: center;
-    }
-    .lobby-members {
-      margin-top: 10px;
-      font-size: 11px;
-      color: #888;
-    }
-    .lobby-member {
-      padding: 4px 0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .lobby-member-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #4ade80;
-    }
+    .lobby-room-info { background: #111118; border-radius: 12px; padding: 12px; margin-top: 8px; }
+    .lobby-room-code { font-size: 24px; font-weight: 800; color: #6C8EBF; text-align: center; letter-spacing: 4px; margin: 8px 0; }
+    .lobby-room-label { font-size: 10px; color: #555; text-align: center; }
+    .lobby-members { margin-top: 10px; font-size: 11px; color: #888; }
+    .lobby-member { padding: 4px 0; display: flex; align-items: center; gap: 6px; }
+    .lobby-member-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
 
-    /* ─── 꾸미기 페이지 ─── */
-    .custom-section {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .custom-preview {
-      width: 96px;
-      height: 96px;
-      margin: 0 auto 8px;
-      border-radius: 16px;
-      background: #1a1a22;
-      border: 2px dashed #2a2a35;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-    }
-    .custom-row { }
-    .custom-label {
-      font-size: 10px;
-      color: #555;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .custom-options {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-    .custom-btn {
-      padding: 5px 11px;
-      font-size: 11px;
-      border-radius: 99px;
-      border: 1px solid #2a2a35;
-      background: #1a1a22;
-      color: #888;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
+    /* 꾸미기 */
+    .custom-section { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .custom-preview { width: 96px; height: 96px; margin: 0 auto 8px; border-radius: 16px; background: #1a1a22; border: 2px dashed #2a2a35; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+    .custom-label { font-size: 10px; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .custom-options { display: flex; gap: 4px; flex-wrap: wrap; }
+    .custom-btn { padding: 5px 11px; font-size: 11px; border-radius: 99px; border: 1px solid #2a2a35; background: #1a1a22; color: #888; cursor: pointer; }
     .custom-btn:hover { border-color: #6C8EBF; color: #ddd; }
     .custom-btn.active { background: #6C8EBF; border-color: #6C8EBF; color: #fff; }
 
-    /* ─── 설정 페이지 ─── */
-    .settings-section {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .settings-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: #1a1a22;
-      border-radius: 12px;
-      margin-bottom: 6px;
-    }
-    .settings-item-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    /* 설정 */
+    .settings-section { padding: 16px; display: flex; flex-direction: column; gap: 2px; }
+    .settings-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #1a1a22; border-radius: 12px; margin-bottom: 6px; }
+    .settings-item-left { display: flex; align-items: center; gap: 10px; }
     .settings-icon { font-size: 18px; }
     .settings-label { font-size: 12px; color: #ddd; }
     .settings-desc { font-size: 9px; color: #555; margin-top: 1px; }
-
-    /* 토글 스위치 */
-    .toggle {
-      width: 40px;
-      height: 22px;
-      border-radius: 99px;
-      background: #2a2a35;
-      cursor: pointer;
-      position: relative;
-      transition: background 0.2s;
-    }
+    .toggle { width: 40px; height: 22px; border-radius: 99px; background: #2a2a35; cursor: pointer; position: relative; transition: background 0.2s; }
     .toggle.on { background: #6C8EBF; }
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #fff;
-      transition: transform 0.2s;
-    }
+    .toggle::after { content:''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
     .toggle.on::after { transform: translateX(18px); }
-
-    .settings-divider {
-      height: 1px;
-      background: #1e1e28;
-      margin: 8px 0;
-    }
-    .settings-version {
-      text-align: center;
-      font-size: 10px;
-      color: #333;
-      margin-top: 12px;
-    }
-
-    /* ─── 퀵 채팅 입력 (캐릭터 옆에 뜨는 것) ─── */
-    .quick-chat {
-      position: absolute;
-      display: none;
-      z-index: 998;
-    }
-    .quick-chat.visible { display: flex; }
-    .quick-chat input {
-      width: 200px;
-      padding: 7px 12px;
-      border-radius: 99px;
-      border: 1px solid #444;
-      background: #1a1a22;
-      color: #fff;
-      font-size: 12px;
-      outline: none;
-    }
-    .quick-chat input:focus { border-color: #6C8EBF; }
-    .quick-chat-label {
-      position: absolute;
-      top: -16px;
-      left: 12px;
-      font-size: 9px;
-      color: #888;
-    }
+    .settings-divider { height: 1px; background: #1e1e28; margin: 8px 0; }
+    .settings-version { text-align: center; font-size: 10px; color: #333; margin-top: 12px; }
   </style>
 </head>
 <body>
 
-  <!-- 퀵 채팅 (다른 캐릭터 클릭 시 귓속말) -->
   <div class="quick-chat" id="quickChat">
-    <span class="quick-chat-label" id="quickChatLabel">🤫 귓속말</span>
-    <input type="text" id="quickChatInput" placeholder="귓속말..." autocomplete="off" />
+    <span class="quick-chat-label" id="quickChatLabel">💬 전체</span>
+    <input type="text" id="quickChatInput" placeholder="메시지..." autocomplete="off" />
   </div>
 
-  <!-- ═══ 핸드폰 UI (통합) ═══ -->
   <div class="phone" id="phone">
-
-    <!-- 상단바 -->
     <div class="phone-topbar">
       <span class="phone-title">🐾 Hellowee</span>
       <button class="phone-close" id="phoneClose">✕</button>
     </div>
-
-    <!-- 콘텐츠 -->
     <div class="phone-content">
-
-      <!-- 💬 채팅 페이지 -->
       <div class="phone-page active" id="pagechat">
         <div class="chat-sub-tabs">
           <div class="chat-sub-tab active" data-subtab="all">전체채팅</div>
@@ -507,122 +137,60 @@
           <button id="chatPageSend">↑</button>
         </div>
       </div>
-
-      <!-- 🏠 로비 페이지 -->
       <div class="phone-page" id="pagelobby">
         <div class="lobby-section">
-
-          <!-- 현재 방 정보 -->
           <div class="lobby-card">
             <div class="lobby-card-title">📡 현재 방</div>
-            <div class="lobby-room-info visible" id="lobbyRoomInfo">
+            <div class="lobby-room-info" id="lobbyRoomInfo">
               <div class="lobby-room-label">방 코드</div>
               <div class="lobby-room-code" id="lobbyRoomCode">---</div>
               <div class="lobby-members" id="lobbyMembers"></div>
             </div>
           </div>
-
-          <!-- 방 만들기 -->
           <div class="lobby-card">
             <div class="lobby-card-title">✨ 새 방 만들기</div>
             <input class="lobby-input" id="lobbyMyName" placeholder="내 이름" maxlength="12" />
             <button class="lobby-btn primary" id="lobbyCreate">방 만들기</button>
           </div>
-
-          <!-- 방 입장 -->
           <div class="lobby-card">
             <div class="lobby-card-title">🚪 방 입장</div>
-            <input class="lobby-input" id="lobbyCode" placeholder="방 코드 입력" maxlength="6" style="text-transform: uppercase; letter-spacing: 3px; text-align: center; font-size: 18px; font-weight: 700;" />
+            <input class="lobby-input" id="lobbyCode" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-size:18px;font-weight:700;" />
             <input class="lobby-input" id="lobbyJoinName" placeholder="내 이름" maxlength="12" />
             <button class="lobby-btn primary" id="lobbyJoin">입장하기</button>
           </div>
-
         </div>
       </div>
-
-      <!-- 🎨 꾸미기 페이지 -->
       <div class="phone-page" id="pagecustom">
         <div class="custom-section">
           <div class="custom-preview" id="customPreview">🐾</div>
-          <!-- JS에서 파츠 버튼 동적 생성 -->
         </div>
       </div>
-
-      <!-- ⚙️ 설정 페이지 -->
       <div class="phone-page" id="pagesettings">
         <div class="settings-section">
-
           <div class="settings-item">
-            <div class="settings-item-left">
-              <span class="settings-icon">📌</span>
-              <div>
-                <div class="settings-label">항상 위에 고정</div>
-                <div class="settings-desc">다른 창 위에 캐릭터 표시</div>
-              </div>
-            </div>
+            <div class="settings-item-left"><span class="settings-icon">📌</span><div><div class="settings-label">항상 위에 고정</div><div class="settings-desc">다른 창 위에 캐릭터 표시</div></div></div>
             <div class="toggle on" id="togglePin"></div>
           </div>
-
           <div class="settings-item">
-            <div class="settings-item-left">
-              <span class="settings-icon">⚡</span>
-              <div>
-                <div class="settings-label">어텐션 모드</div>
-                <div class="settings-desc">알림 쌓이면 마우스 쫓아감</div>
-              </div>
-            </div>
+            <div class="settings-item-left"><span class="settings-icon">⚡</span><div><div class="settings-label">어텐션 모드</div><div class="settings-desc">알림 쌓이면 마우스 쫓아감</div></div></div>
             <div class="toggle on" id="toggleAttention"></div>
           </div>
-
           <div class="settings-item">
-            <div class="settings-item-left">
-              <span class="settings-icon">💬</span>
-              <div>
-                <div class="settings-label">말풍선 표시</div>
-                <div class="settings-desc">실시간 채팅 말풍선</div>
-              </div>
-            </div>
+            <div class="settings-item-left"><span class="settings-icon">💬</span><div><div class="settings-label">말풍선 표시</div><div class="settings-desc">실시간 채팅 말풍선</div></div></div>
             <div class="toggle on" id="toggleBubble"></div>
           </div>
-
           <div class="settings-divider"></div>
-
-          <div class="settings-item" id="settingsLeave" style="cursor:pointer;">
-            <div class="settings-item-left">
-              <span class="settings-icon">🚪</span>
-              <div>
-                <div class="settings-label" style="color:#ff4757;">방 나가기</div>
-              </div>
-            </div>
-          </div>
-
+          <div class="settings-item" id="settingsLeave" style="cursor:pointer;"><div class="settings-item-left"><span class="settings-icon">🚪</span><div><div class="settings-label" style="color:#ff4757;">방 나가기</div></div></div></div>
           <div class="settings-version">Hellowee v1.0.0 🐾</div>
         </div>
       </div>
-
     </div>
-
-    <!-- 하단 네비 -->
     <div class="phone-nav">
-      <div class="phone-nav-item active" data-page="chat">
-        <span class="phone-nav-icon">💬</span>
-        <span>채팅</span>
-        <div class="phone-nav-dot" id="dotChat"></div>
-      </div>
-      <div class="phone-nav-item" data-page="lobby">
-        <span class="phone-nav-icon">🏠</span>
-        <span>로비</span>
-      </div>
-      <div class="phone-nav-item" data-page="custom">
-        <span class="phone-nav-icon">🎨</span>
-        <span>꾸미기</span>
-      </div>
-      <div class="phone-nav-item" data-page="settings">
-        <span class="phone-nav-icon">⚙️</span>
-        <span>설정</span>
-      </div>
+      <div class="phone-nav-item active" data-page="chat"><span class="phone-nav-icon">💬</span><span>채팅</span><div class="phone-nav-dot" id="dotChat"></div></div>
+      <div class="phone-nav-item" data-page="lobby"><span class="phone-nav-icon">🏠</span><span>로비</span></div>
+      <div class="phone-nav-item" data-page="custom"><span class="phone-nav-icon">🎨</span><span>꾸미기</span></div>
+      <div class="phone-nav-item" data-page="settings"><span class="phone-nav-icon">⚙️</span><span>설정</span></div>
     </div>
-
   </div>
 
   <script src="renderer.js"></script>
