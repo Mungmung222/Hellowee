@@ -5,21 +5,21 @@ const io = require('socket.io-client');
 //  설정
 // ════════════════════════════════════════════
 const SERVER_URL = 'http://localhost:3000';
-const CHAR_SIZE = 128;       // 캐릭터 캔버스 크기 (px)
+const CHAR_SIZE = 128;
 const FPS = 8;
 const GRAVITY = 0.5;
 const FLOOR_Y = window.innerHeight - CHAR_SIZE;
 const BUBBLE_DURATION = 4000;
 const CLICK_THRESHOLD = 5;
+const ATTENTION_THRESHOLD = 10;   // 알림 몇 개부터 쫓아다니기
+const MOUSE_IDLE_TIME = 2000;     // 마우스 멈춤 판정 (ms)
+const CHASE_SPEED = 3;            // 쫓아가는 속도
 
 // ════════════════════════════════════════════
 //  레이어 기반 파츠 시스템
 // ════════════════════════════════════════════
-
-// 레이어 렌더링 순서 (아래→위)
 const LAYER_ORDER = ['body', 'clothes', 'mouth', 'eyes', 'hair', 'accessory'];
 
-// 각 파츠별 옵션 정의
 const PARTS_OPTIONS = {
   body:      ['default', 'light', 'medium', 'dark'],
   eyes:      ['round', 'cat', 'sleepy'],
@@ -29,7 +29,6 @@ const PARTS_OPTIONS = {
   accessory: ['none', 'hat', 'glasses', 'ribbon'],
 };
 
-// 동작별 프레임 수
 const ANIM_FRAMES = {
   idle:    2,
   walk:    3,
@@ -38,13 +37,6 @@ const ANIM_FRAMES = {
   land:    1,
   thrown:  1,
 };
-
-// 파츠 이미지 경로 규칙:
-// sprites/{layer}/{option}/{action}.png
-// 예: sprites/hair/ponytail/walk.png → 가로 3프레임짜리 스프라이트시트
-//
-// 모든 파츠 PNG는 동일한 캔버스 크기(128×128) 기준이어야 함
-// 각 동작의 프레임은 가로로 이어붙인 스프라이트시트
 
 // ─── 이미지 캐시 ────────────────────────────
 const imageCache = {};
@@ -74,7 +66,6 @@ const myChar = {
   isGrabbed: false,
   forcedGrab: false,
   name: 'me',
-  // 선택된 파츠
   parts: {
     body:      'default',
     eyes:      'round',
@@ -90,6 +81,42 @@ let unreadChat = 0;
 let unreadWhisper = 0;
 let chatHistory = [];
 let whisperHistory = [];
+
+// ════════════════════════════════════════════
+//  마우스 추적 (어텐션 모드용)
+// ════════════════════════════════════════════
+let mousePos = { x: window.innerWidth / 2, y: FLOOR_Y };
+let lastMouseMoveTime = Date.now();
+let mouseIsIdle = false;
+let hasGrabbedMouse = false;  // 이번 어텐션 모드에서 이미 잡았는지
+
+// 전역 마우스 위치 추적
+document.addEventListener('mousemove', (e) => {
+  mousePos.x = e.clientX;
+  mousePos.y = e.clientY;
+  lastMouseMoveTime = Date.now();
+
+  // 마우스 움직이면 잡기 해제
+  if (mouseIsIdle && hasGrabbedMouse) {
+    mouseIsIdle = false;
+    // 잡기 해제 → 떨어짐
+    if (myChar.forcedGrab && myChar.attentionGrab) {
+      myChar.attentionGrab = false;
+      myChar.forcedGrab = false;
+      myChar.state = 'fall';
+      myChar.vy = -3;
+      myChar.vx = (Math.random() - 0.5) * 4;
+    }
+  }
+});
+
+function getTotalUnread() {
+  return unreadChat + unreadWhisper;
+}
+
+function isAttentionMode() {
+  return getTotalUnread() >= ATTENTION_THRESHOLD;
+}
 
 // ════════════════════════════════════════════
 //  내 캐릭터 DOM
@@ -123,7 +150,6 @@ function renderChar(ctx, el, char) {
   ctx.clearRect(0, 0, CHAR_SIZE, CHAR_SIZE);
   ctx.save();
 
-  // 좌우 반전
   if (char.dir === -1) {
     ctx.translate(CHAR_SIZE, 0);
     ctx.scale(-1, 1);
@@ -131,7 +157,6 @@ function renderChar(ctx, el, char) {
 
   let hasAnyImage = false;
 
-  // 레이어 순서대로 그리기
   LAYER_ORDER.forEach(layer => {
     const option = char.parts?.[layer];
     if (!option || option === 'none') return;
@@ -141,7 +166,7 @@ function renderChar(ctx, el, char) {
       hasAnyImage = true;
       ctx.drawImage(
         img,
-        frame * CHAR_SIZE, 0,     // 스프라이트시트에서 잘라내기
+        frame * CHAR_SIZE, 0,
         CHAR_SIZE, CHAR_SIZE,
         0, 0,
         CHAR_SIZE, CHAR_SIZE
@@ -149,7 +174,6 @@ function renderChar(ctx, el, char) {
     }
   });
 
-  // 이미지 없으면 임시 박스
   if (!hasAnyImage) {
     ctx.fillStyle = '#ff6b9d';
     ctx.roundRect(8, 8, CHAR_SIZE - 16, CHAR_SIZE - 16, 12);
@@ -182,6 +206,12 @@ myEl.addEventListener('mousedown', (e) => {
   dragOffset.y = e.clientY - myChar.y;
   isDragging = false;
   ipcRenderer.send('set-ignore-mouse', false);
+
+  // 어텐션 잡기 해제
+  if (myChar.attentionGrab) {
+    myChar.attentionGrab = false;
+    myChar.forcedGrab = false;
+  }
 });
 
 document.addEventListener('mousemove', (e) => {
@@ -253,7 +283,7 @@ document.addEventListener('mouseup', (e) => {
 });
 
 // ════════════════════════════════════════════
-//  팝업 메뉴 (내 캐릭터 단클릭)
+//  팝업 메뉴
 // ════════════════════════════════════════════
 let currentMenu = null;
 
@@ -294,27 +324,21 @@ function showMyMenu(x, y) {
 }
 
 function closeMenu() {
-  if (currentMenu) {
-    currentMenu.remove();
-    currentMenu = null;
-  }
+  if (currentMenu) { currentMenu.remove(); currentMenu = null; }
   document.removeEventListener('click', closeMenuOnClick);
 }
 
 function closeMenuOnClick(e) {
-  if (currentMenu && !currentMenu.contains(e.target)) {
-    closeMenu();
-  }
+  if (currentMenu && !currentMenu.contains(e.target)) closeMenu();
 }
 
 // ════════════════════════════════════════════
-//  꾸미기 패널 (커스텀 파츠 선택)
+//  꾸미기 패널
 // ════════════════════════════════════════════
 let customizerEl = null;
 
 function openCustomizer() {
   if (customizerEl) { customizerEl.remove(); customizerEl = null; return; }
-
   ipcRenderer.send('set-ignore-mouse', false);
 
   customizerEl = document.createElement('div');
@@ -325,7 +349,6 @@ function openCustomizer() {
   title.textContent = '🎨 꾸미기';
   customizerEl.appendChild(title);
 
-  // 각 파츠별 옵션 버튼
   const labelMap = {
     body: '피부', eyes: '눈', mouth: '입',
     hair: '헤어', clothes: '옷', accessory: '악세서리',
@@ -350,10 +373,8 @@ function openCustomizer() {
       btn.textContent = option;
       btn.addEventListener('click', () => {
         myChar.parts[layer] = option;
-        // 활성 버튼 갱신
         btnWrap.querySelectorAll('.customizer-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        // 서버에 파츠 변경 알림
         if (socket) socket.emit('update-parts', myChar.parts);
       });
       btnWrap.appendChild(btn);
@@ -363,13 +384,11 @@ function openCustomizer() {
     customizerEl.appendChild(row);
   });
 
-  // 닫기 버튼
   const closeBtn = document.createElement('button');
   closeBtn.className = 'customizer-close';
   closeBtn.textContent = '✕ 닫기';
   closeBtn.addEventListener('click', () => {
-    customizerEl.remove();
-    customizerEl = null;
+    customizerEl.remove(); customizerEl = null;
     ipcRenderer.send('set-ignore-mouse', true);
   });
   customizerEl.appendChild(closeBtn);
@@ -470,11 +489,18 @@ function updateBubbles() {
 // ════════════════════════════════════════════
 //  느낌표 알림
 // ════════════════════════════════════════════
-function showAlert() { alertBadge.style.display = 'block'; }
+function showAlert() {
+  alertBadge.style.display = 'block';
+  // 어텐션 모드 진입 시 뱃지에 숫자 표시
+  const total = getTotalUnread();
+  alertBadge.textContent = total >= ATTENTION_THRESHOLD ? '!!' : '!';
+  alertBadge.style.background = total >= ATTENTION_THRESHOLD ? '#ff2020' : '#ff4757';
+}
 function hideAlert() {
   alertBadge.style.display = 'none';
   unreadChat = 0;
   unreadWhisper = 0;
+  hasGrabbedMouse = false;  // 리셋
 }
 function updateAlertPos() {
   alertBadge.style.left = (myChar.x + CHAR_SIZE - 5) + 'px';
@@ -564,6 +590,55 @@ function randomWalk() {
 }
 
 // ════════════════════════════════════════════
+//  어텐션 모드 — 마우스 쫓아가기 + 잡기
+// ════════════════════════════════════════════
+function updateAttentionMode() {
+  if (!isAttentionMode()) return false;
+  if (myChar.isGrabbed || myChar.forcedGrab) return false;
+  if (myChar.y < FLOOR_Y) return false; // 공중이면 무시
+
+  const charCenterX = myChar.x + CHAR_SIZE / 2;
+  const targetX = mousePos.x;
+  const dist = Math.abs(targetX - charCenterX);
+  const now = Date.now();
+
+  // 마우스가 멈춤 판정
+  mouseIsIdle = (now - lastMouseMoveTime) > MOUSE_IDLE_TIME;
+
+  // 마우스 쫓아가기
+  if (dist > CHAR_SIZE / 2) {
+    // 아직 멀면 빠르게 쫓아감
+    myChar.state = 'walk';
+    myChar.dir = targetX > charCenterX ? 1 : -1;
+    myChar.vx = myChar.dir * CHASE_SPEED;
+  } else {
+    // 가까이 왔을 때
+    myChar.vx = 0;
+
+    if (mouseIsIdle && !hasGrabbedMouse) {
+      // 마우스가 멈추고 + 아직 안 잡았으면 → 강제 잡기!
+      hasGrabbedMouse = true;
+      myChar.state = 'grabbed';
+      myChar.attentionGrab = true;
+      myChar.forcedGrab = true;
+
+      // 마우스 커서 위치에 달라붙기
+      myChar.x = mousePos.x - CHAR_SIZE / 2;
+      myChar.y = mousePos.y - CHAR_SIZE / 2;
+
+      // 강제로 메뉴 열기 (채팅 읽으라고!)
+      setTimeout(() => {
+        showMyMenu(mousePos.x, mousePos.y);
+      }, 500);
+    } else if (!mouseIsIdle) {
+      myChar.state = 'idle';
+    }
+  }
+
+  return true; // 어텐션 모드 활성
+}
+
+// ════════════════════════════════════════════
 //  메인 루프
 // ════════════════════════════════════════════
 let lastTime = 0;
@@ -586,14 +661,23 @@ function loop(ts) {
         setTimeout(() => { myChar.state = 'idle'; randomWalk(); }, 300);
       }
 
-      walkTimer -= 1;
-      if (walkTimer <= 0 && myChar.state !== 'land') randomWalk();
+      // 어텐션 모드가 아닐 때만 랜덤 걷기
+      const isAttention = updateAttentionMode();
+      if (!isAttention) {
+        walkTimer -= 1;
+        if (walkTimer <= 0 && myChar.state !== 'land') randomWalk();
+      }
+
       myChar.x += myChar.vx;
     }
 
     myChar.y += myChar.vy;
     myChar.x = Math.max(0, Math.min(window.innerWidth - CHAR_SIZE, myChar.x));
     myChar.y = Math.min(FLOOR_Y, myChar.y);
+  } else if (myChar.attentionGrab) {
+    // 어텐션 잡기 중에는 마우스 따라다님
+    myChar.x = mousePos.x - CHAR_SIZE / 2;
+    myChar.y = mousePos.y - CHAR_SIZE / 2;
   }
 
   // 프레임 애니메이션
@@ -645,7 +729,6 @@ function connectSocket(roomCode, userName) {
     socket.emit('join', { room: roomCode, name: userName, parts: myChar.parts });
   });
 
-  // ─── 유저 입장 (파츠 정보 포함) ───
   socket.on('user-joined', ({ id, name, parts }) => {
     if (otherChars[id]) return;
 
@@ -684,14 +767,10 @@ function connectSocket(roomCode, userName) {
     });
   });
 
-  // ─── 파츠 변경 수신 ───
   socket.on('user-parts-updated', ({ id, parts }) => {
-    if (otherChars[id]) {
-      otherChars[id].parts = parts;
-    }
+    if (otherChars[id]) otherChars[id].parts = parts;
   });
 
-  // ─── 유저 움직임 ───
   socket.on('user-moved', ({ id, x, y, state, dir, frame }) => {
     if (otherChars[id]) {
       otherChars[id].x = x;
@@ -702,7 +781,6 @@ function connectSocket(roomCode, userName) {
     }
   });
 
-  // ─── 유저 나감 ───
   socket.on('user-left', ({ id }) => {
     if (otherChars[id]) {
       otherChars[id].el.remove();
@@ -711,7 +789,6 @@ function connectSocket(roomCode, userName) {
     }
   });
 
-  // ─── 전체 채팅 ───
   socket.on('chat-message', (data) => {
     chatHistory.push(data);
     if (data.id === socket.id) {
@@ -728,7 +805,6 @@ function connectSocket(roomCode, userName) {
     }
   });
 
-  // ─── 귓속말 ───
   socket.on('whisper-message', (data) => {
     whisperHistory.push(data);
     if (data.fromId === socket.id) {
@@ -745,11 +821,9 @@ function connectSocket(roomCode, userName) {
     }
   });
 
-  // ─── 채팅기록 ───
   socket.on('chat-history', (log) => { chatHistory = log; });
   socket.on('whisper-history', (log) => { whisperHistory = log; });
 
-  // ─── 강제 잡힘 ───
   socket.on('force-grabbed', ({ grabbedBy }) => {
     myChar.forcedGrab = true;
     myChar.state = 'grabbed';
@@ -770,6 +844,7 @@ function connectSocket(roomCode, userName) {
 
   socket.on('force-thrown', ({ vx, vy }) => {
     myChar.forcedGrab = false;
+    myChar.attentionGrab = false;
     myChar.state = 'fall';
     myChar.vx = vx;
     myChar.vy = vy;
