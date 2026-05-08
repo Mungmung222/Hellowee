@@ -1,0 +1,348 @@
+<!-- 약관 동의 + 로그인 화면 (Electron BrowserWindow로 로드) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hellowee - 시작하기</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    .logo { font-size: 48px; margin-bottom: 8px; }
+    h1 { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #555; margin-bottom: 32px; }
+
+    /* 로그인 버튼들 */
+    .login-section {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .login-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px;
+      border-radius: 14px;
+      border: 1px solid #2a2a35;
+      background: #1a1a22;
+      color: #ddd;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .login-btn:hover { background: #222233; border-color: #3a3a55; transform: translateY(-1px); }
+    .login-btn:active { transform: translateY(0); }
+    .login-btn img { width: 20px; height: 20px; }
+    .login-btn.google { border-color: #4285f433; }
+    .login-btn.google:hover { border-color: #4285f4; }
+    .login-btn.kakao { border-color: #FEE50033; background: #1a1a22; }
+    .login-btn.kakao:hover { border-color: #FEE500; background: #2a2a22; }
+    .login-btn.naver { border-color: #03C75A33; }
+    .login-btn.naver:hover { border-color: #03C75A; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      color: #333;
+      font-size: 11px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #1e1e28;
+    }
+
+    /* 약관 */
+    .terms-section {
+      width: 100%;
+      max-width: 320px;
+      background: #1a1a22;
+      border: 1px solid #2a2a35;
+      border-radius: 16px;
+      padding: 16px;
+      display: none;
+    }
+    .terms-section.visible { display: block; }
+    .terms-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .terms-content {
+      background: #111118;
+      border-radius: 12px;
+      padding: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+    .terms-content::-webkit-scrollbar { width: 3px; }
+    .terms-content::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
+    .terms-content h3 { color: #aaa; font-size: 12px; margin: 10px 0 4px; }
+    .terms-content h3:first-child { margin-top: 0; }
+
+    .terms-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      cursor: pointer;
+    }
+    .terms-check input { display: none; }
+    .terms-checkbox {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 2px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .terms-check input:checked + .terms-checkbox {
+      background: #6C8EBF;
+      border-color: #6C8EBF;
+    }
+    .terms-check-label { font-size: 12px; color: #aaa; }
+
+    .nickname-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #2a2a35;
+      background: #111118;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .nickname-input:focus { border-color: #6C8EBF; }
+    .nickname-input::placeholder { color: #444; }
+
+    .start-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: 14px;
+      border: none;
+      background: #6C8EBF;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .start-btn:hover { background: #5a7dae; }
+    .start-btn:disabled {
+      background: #2a2a35;
+      color: #555;
+      cursor: not-allowed;
+    }
+
+    .error-msg {
+      color: #ff4757;
+      font-size: 11px;
+      text-align: center;
+      margin-top: 8px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* 로딩 */
+    .loading {
+      display: none;
+      text-align: center;
+      color: #555;
+      font-size: 12px;
+    }
+    .loading.visible { display: block; }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid #2a2a35;
+      border-top-color: #6C8EBF;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="logo">🐾</div>
+  <h1>Hellowee</h1>
+  <p class="subtitle">친구들이랑 바탕화면에서 놀자!</p>
+
+  <!-- 로딩 -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    로그인 확인 중...
+  </div>
+
+  <!-- 로그인 버튼 -->
+  <div class="login-section" id="loginSection">
+    <button class="login-btn google" id="btnGoogle">
+      🌐 Google로 시작
+    </button>
+    <button class="login-btn kakao" id="btnKakao">
+      💬 카카오로 시작
+    </button>
+    <button class="login-btn naver" id="btnNaver">
+      🌏 네이버로 시작
+    </button>
+    <div class="divider">or</div>
+    <button class="login-btn" id="btnGuest">
+      🐾 게스트로 시작 (로그인 없이)
+    </button>
+    <div class="error-msg" id="loginError"></div>
+  </div>
+
+  <!-- 약관 + 닉네임 (로그인 후) -->
+  <div class="terms-section" id="termsSection">
+    <div class="terms-title">🐾 시작하기 전에</div>
+
+    <input class="nickname-input" id="nicknameSetup" placeholder="닉네임을 정해줘!" maxlength="12" />
+
+    <div class="terms-content">
+      <h3>📜 Hellowee 이용 약관</h3>
+      <p>
+        1. 욱설, 혐오, 성적 발언을 금지합니다.<br>
+        2. 타인의 개인정보를 공유하지 않습니다.<br>
+        3. 다른 사용자를 괴롭히거나 불쾌하게 하는 행위를 금지합니다.<br>
+        4. 위반 시 이용이 제한될 수 있습니다.
+      </p>
+      <h3>⚠️ 면책 조항</h3>
+      <p>
+        5. Hellowee는 사용자 간 대화 내용에 대한 법적 책임을 지지 않습니다.<br>
+        6. 사용자는 본인의 행위에 대해 스스로 책임집니다.<br>
+        7. 서비스 내 데이터는 서비스 개선을 위해 수집될 수 있습니다.<br>
+        8. 운영자는 사전 통보 없이 서비스를 변경하거나 종료할 수 있습니다.
+      </p>
+    </div>
+
+    <label class="terms-check">
+      <input type="checkbox" id="termsCheckbox" />
+      <div class="terms-checkbox">✓</div>
+      <span class="terms-check-label">위 약관에 동의합니다</span>
+    </label>
+
+    <button class="start-btn" id="startBtn" disabled>시작하기 🐾</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const loginSection = document.getElementById('loginSection');
+    const termsSection = document.getElementById('termsSection');
+    const loading = document.getElementById('loading');
+    const loginError = document.getElementById('loginError');
+    const termsCheckbox = document.getElementById('termsCheckbox');
+    const nicknameSetup = document.getElementById('nicknameSetup');
+    const startBtn = document.getElementById('startBtn');
+
+    // 약관 동의 체크
+    termsCheckbox.addEventListener('change', () => {
+      startBtn.disabled = !termsCheckbox.checked || !nicknameSetup.value.trim();
+    });
+    nicknameSetup.addEventListener('input', () => {
+      startBtn.disabled = !termsCheckbox.checked || !nicknameSetup.value.trim();
+    });
+
+    // 로그인 버튼
+    document.getElementById('btnGoogle').addEventListener('click', () => {
+      ipcRenderer.send('auth-login', 'google');
+    });
+    document.getElementById('btnKakao').addEventListener('click', () => {
+      ipcRenderer.send('auth-login', 'kakao');
+    });
+    document.getElementById('btnNaver').addEventListener('click', () => {
+      ipcRenderer.send('auth-login', 'naver');
+    });
+    document.getElementById('btnGuest').addEventListener('click', () => {
+      // 게스트 모드 → 로그인 없이 바로 약관으로
+      loginSection.style.display = 'none';
+      termsSection.classList.add('visible');
+    });
+
+    // 로그인 결과 수신
+    ipcRenderer.on('auth-result', (event, result) => {
+      loading.classList.remove('visible');
+      if (result.error) {
+        loginError.textContent = result.error;
+        loginError.classList.add('visible');
+        loginSection.style.display = 'flex';
+      } else {
+        // 로그인 성공 → 약관 화면
+        loginSection.style.display = 'none';
+        termsSection.classList.add('visible');
+        if (result.nickname) {
+          nicknameSetup.value = result.nickname;
+        }
+      }
+    });
+
+    // 자동 로그인 결과
+    ipcRenderer.on('auto-login-result', (event, result) => {
+      loading.classList.remove('visible');
+      if (result.success) {
+        // 이미 약관 동의 + 닉네임 있음 → 바로 시작
+        if (result.termsAccepted) {
+          ipcRenderer.send('auth-complete', {
+            nickname: result.nickname,
+            parts: result.parts,
+            isGuest: false,
+          });
+        } else {
+          loginSection.style.display = 'none';
+          termsSection.classList.add('visible');
+          nicknameSetup.value = result.nickname || '';
+        }
+      } else {
+        loginSection.style.display = 'flex';
+      }
+    });
+
+    // 시작 버튼
+    startBtn.addEventListener('click', () => {
+      const nickname = nicknameSetup.value.trim();
+      if (!nickname || !termsCheckbox.checked) return;
+
+      ipcRenderer.send('auth-complete', {
+        nickname,
+        parts: null,
+        isGuest: !loginSection.style.display || loginSection.style.display !== 'none',
+      });
+    });
+
+    // 시작 시 자동 로그인 시도
+    loading.classList.add('visible');
+    loginSection.style.display = 'none';
+    ipcRenderer.send('try-auto-login');
+  </script>
+</body>
+</html>
