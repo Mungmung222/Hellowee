@@ -1,0 +1,83 @@
+name: Build & Release Hellowee
+
+on:
+  push:
+    tags:
+      - 'v*'  # v1.0.0 같은 태그 푸시하면 자동 빌드
+  workflow_dispatch:  # 수동 실행도 가능
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build Electron app
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hellowee-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: hellowee-windows-latest
+          path: dist-win
+      
+      - name: Download Mac build
+        uses: actions/download-artifact@v4
+        with:
+          name: hellowee-macos-latest
+          path: dist-mac
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Hellowee ${{ github.ref_name }} \uD83D\uDC3E"
+          body: |
+            ## \uD83D\uDC3E Hellowee ${{ github.ref_name }}
+            
+            \uBA40\uD2F0\uD50C\uB808\uC774\uC5B4 \uC2DC\uBA54\uC9C0 - \uCE5C\uAD6C\uB4E4\uC774\uB791 \uBC14\uD0D5\uD654\uBA74\uC5D0\uC11C \uB180\uC790!
+            
+            ### \uB2E4\uC6B4\uB85C\uB4DC
+            - **Windows**: `.exe` \uD30C\uC77C \uB2E4\uC6B4\uB85C\uB4DC \u2192 \uC2E4\uD589
+            - **Mac**: `.dmg` \uD30C\uC77C \uB2E4\uC6B4\uB85C\uB4DC \u2192 Applications\uC5D0 \uB4DC\uB798\uADF8
+          files: |
+            dist-win/*
+            dist-mac/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
