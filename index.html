@@ -117,6 +117,15 @@
     .modal-btn { flex: 1; padding: 9px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; }
     .modal-btn.cancel { background: #2a2a35; color: #888; }
     .modal-btn.confirm { background: #6C8EBF; color: #fff; }
+
+    /* 로딩 모달 */
+    .loading-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1002; }
+    .loading-modal.visible { display: flex; }
+    .loading-box { background: #1a1a22; border: 1px solid #2a2a35; border-radius: 18px; padding: 28px 24px; width: 240px; text-align: center; }
+    .loading-spinner { width: 28px; height: 28px; border: 3px solid #2a2a35; border-top-color: #6C8EBF; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 13px; color: #ddd; margin-bottom: 6px; }
+    .loading-sub { font-size: 10px; color: #555; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -130,7 +139,16 @@
       <div class="phone-page" id="pagecustom"><div class="custom-section"><div class="custom-preview" id="customPreview">🐾</div></div></div>
       <div class="phone-page" id="pagesettings"><div class="settings-section"><div class="settings-group-label">디스플레이</div><div class="settings-item"><div class="settings-item-left"><span class="settings-icon">📌</span><div><div class="settings-label">항상 위에 고정</div><div class="settings-desc">다른 창 위에 캐릭터 표시</div></div></div><div class="toggle on" id="togglePin"></div></div><div class="settings-item"><div class="settings-item-left"><span class="settings-icon">💬</span><div><div class="settings-label">말풍선 표시</div><div class="settings-desc">실시간 채팅 말풍선</div></div></div><div class="toggle on" id="toggleBubble"></div></div><div class="settings-group-label">알림</div><div class="settings-item"><div class="settings-item-left"><span class="settings-icon">⚡</span><div><div class="settings-label">어텐션 모드</div><div class="settings-desc">알림 쌓이면 마우스 쫓아감</div></div></div><div class="toggle on" id="toggleAttention"></div></div><div class="settings-item"><div class="settings-item-left"><span class="settings-icon">🔊</span><div><div class="settings-label">소리</div><div class="settings-desc">알림 소리 등</div></div></div><div class="toggle on" id="toggleSound"></div></div><div class="settings-group-label">계정</div><div class="settings-item clickable" id="settingsNickname"><div class="settings-item-left"><span class="settings-icon">✏️</span><div><div class="settings-label">닉네임 변경</div><div class="settings-desc" id="settingsNicknameVal">guest</div></div></div><span class="settings-arrow">›</span></div><div class="settings-divider"></div><div class="settings-group-label">기타</div><div class="settings-item clickable" id="settingsTutorial"><div class="settings-item-left"><span class="settings-icon">📖</span><div><div class="settings-label">튜토리얼 다시보기</div></div></div><span class="settings-arrow">›</span></div><div class="settings-item clickable" id="settingsLeave"><div class="settings-item-left"><span class="settings-icon">🚪</span><div><div class="settings-label" style="color:#ff4757;">방 나가기</div></div></div></div><div class="settings-version">Hellowee v1.0.0 🐾</div></div></div>
     </div>
+    <!-- 닉네임 모달 -->
     <div class="modal-overlay" id="nicknameModal"><div class="modal-box"><div class="modal-title">✏️ 닉네임 변경</div><input class="modal-input" id="nicknameInput" placeholder="새 닉네임" maxlength="12" /><div class="modal-btns"><button class="modal-btn cancel" id="nicknameCancel">취소</button><button class="modal-btn confirm" id="nicknameConfirm">변경</button></div></div></div>
+    <!-- 로딩 모달 -->
+    <div class="loading-modal" id="loadingModal">
+      <div class="loading-box">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">서버 연결 중...</div>
+        <div class="loading-sub" id="loadingSub">첫 접속 시 서버가 깨어나는 데<br>최대 1분 정도 걸릴 수 있어요 🐾</div>
+      </div>
+    </div>
   </div>
   <script src="renderer.js"></script>
 </body>
