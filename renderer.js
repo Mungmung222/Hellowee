@@ -5,8 +5,8 @@ const { SoundManager } = require('./sound');
 
 // ════ 설정 ════
 const SERVER_URL = 'https://hellowee-server.onrender.com';
-const CHAR_SIZE = 256;          // 스프라이트 원본 크기 (256px로 그리기)
-const DISPLAY_SIZE = 128;       // 화면에 보이는 크기 (CSS)
+const CHAR_SIZE = 256;          // 스프라이트 원본 크기
+const DISPLAY_SIZE = 128;       // 화면 표시 크기
 const FPS = 10, GRAVITY = 0.5;
 const FLOOR_Y = window.innerHeight - DISPLAY_SIZE;
 const BUBBLE_DURATION = 4000, EMPTY_BUBBLE_DURATION = 3000;
@@ -22,8 +22,21 @@ const ANIM_FRAMES={idle:4,walk:6,fall:2,grabbed:2,land:2,thrown:3,wave:6,sit:4,n
 const RANDOM_ACTIONS=['wave','sit','nod','jump'];
 const EMOJIS=['👋','😂','❤️','👍','😭','🔥','🎉','🤔','😍','🙄','🐾','✨'];
 const STATUS_LIST=['🟢 온라인','🟡 자리비움','🟠 밥 먹는 중','🔴 일하는 중','🟣 회의 중','⚫ 방해금지'];
+
+// ════ 개별 PNG 프레임 로더 ════
+// 파일경로: sprites/{layer}/{option}/{action}_{frame}.png
 const imageCache={};
-function getPartImage(l,o,a){if(o==='none')return null;const k=`${l}/${o}/${a}`;if(!imageCache[k]){const i=new Image();i.src=`sprites/${k}.png`;imageCache[k]=i;}return imageCache[k];}
+function getPartImage(layer, option, action, frame) {
+  if (option === 'none') return null;
+  const key = layer + '/' + option + '/' + action + '_' + frame;
+  if (!imageCache[key]) {
+    const img = new Image();
+    img.src = 'sprites/' + key + '.png';
+    imageCache[key] = img;
+  }
+  return imageCache[key];
+}
+
 const myChar={x:window.innerWidth/2,y:100,vx:0,vy:0,state:'fall',dir:1,frame:0,frameTimer:0,isGrabbed:false,forcedGrab:false,attentionGrab:false,name:'guest',status:'',parts:{body:'default',eyes:'round',mouth:'smile',hair:'short',clothes:'hoodie',accessory:'none'}};
 const otherChars={};let unreadChat=0,unreadWhisper=0,chatHistory=[],whisperHistory=[];let currentRoom=null,isRoomOwner=false;
 ipcRenderer.on('auth-data',(event,data)=>{if(!data)return;if(data.nickname)myChar.name=data.nickname;if(data.parts)myChar.parts=data.parts;document.getElementById('settingsNicknameVal').textContent=myChar.name;if(Tutorial.needsTutorial()){startTutorial();}else{tryAutoReconnect();}});
@@ -32,10 +45,40 @@ let mousePos={x:window.innerWidth/2,y:FLOOR_Y},lastActivityTime=Date.now(),mouse
 document.addEventListener('mousemove',(e)=>{mousePos.x=e.clientX;mousePos.y=e.clientY;lastActivityTime=Date.now();if(mouseIsIdle&&hasGrabbedMouse&&myChar.attentionGrab){mouseIsIdle=false;myChar.attentionGrab=false;myChar.forcedGrab=false;myChar.state='fall';myChar.vy=-3;myChar.vx=(Math.random()-0.5)*4;}});
 document.addEventListener('mousedown',()=>{lastActivityTime=Date.now();sfx.init();});
 function isAttentionMode(){return settingAttention&&(unreadWhisper>=WHISPER_ATTENTION||unreadChat>=CHAT_ATTENTION);}
-// 캐릭터 캔버스: 원본 256px, 화면 128px
 const myEl=document.createElement('canvas');myEl.width=CHAR_SIZE;myEl.height=CHAR_SIZE;myEl.className='character';myEl.style.width=DISPLAY_SIZE+'px';myEl.style.height=DISPLAY_SIZE+'px';document.body.appendChild(myEl);const myCtx=myEl.getContext('2d');
 const alertBadge=document.createElement('div');alertBadge.className='alert-badge';alertBadge.textContent='!';alertBadge.style.display='none';document.body.appendChild(alertBadge);
-function renderChar(ctx,el,char){const a=char.state||'idle',f=ANIM_FRAMES[a]||ANIM_FRAMES.idle,fr=char.frame%f;ctx.clearRect(0,0,CHAR_SIZE,CHAR_SIZE);ctx.save();if(char.dir===-1){ctx.translate(CHAR_SIZE,0);ctx.scale(-1,1);}let has=false;LAYER_ORDER.forEach(l=>{const o=char.parts?.[l];if(!o||o==='none')return;const img=getPartImage(l,o,a);if(img&&img.complete&&img.naturalWidth>0){has=true;ctx.drawImage(img,fr*CHAR_SIZE,0,CHAR_SIZE,CHAR_SIZE,0,0,CHAR_SIZE,CHAR_SIZE);}});if(!has){ctx.fillStyle='#ff6b9d';ctx.roundRect(16,16,CHAR_SIZE-32,CHAR_SIZE-32,24);ctx.fill();ctx.fillStyle='#fff';ctx.font='72px sans-serif';ctx.fillText('🐾',CHAR_SIZE/2-36,CHAR_SIZE/2+24);}ctx.restore();el.style.left=char.x+'px';el.style.top=char.y+'px';}
+
+// ════ 렌더링 (개별 PNG) ════
+function renderChar(ctx, el, char) {
+  const action = char.state || 'idle';
+  const totalFrames = ANIM_FRAMES[action] || ANIM_FRAMES.idle;
+  const frameIdx = char.frame % totalFrames;
+  ctx.clearRect(0, 0, CHAR_SIZE, CHAR_SIZE);
+  ctx.save();
+  if (char.dir === -1) { ctx.translate(CHAR_SIZE, 0); ctx.scale(-1, 1); }
+  let hasImage = false;
+  LAYER_ORDER.forEach(function(layer) {
+    var opt = char.parts ? char.parts[layer] : null;
+    if (!opt || opt === 'none') return;
+    var img = getPartImage(layer, opt, action, frameIdx);
+    if (img && img.complete && img.naturalWidth > 0) {
+      hasImage = true;
+      ctx.drawImage(img, 0, 0, CHAR_SIZE, CHAR_SIZE);
+    }
+  });
+  if (!hasImage) {
+    ctx.fillStyle = '#ff6b9d';
+    ctx.roundRect(16, 16, CHAR_SIZE-32, CHAR_SIZE-32, 24);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '72px sans-serif';
+    ctx.fillText('🐾', CHAR_SIZE/2-36, CHAR_SIZE/2+24);
+  }
+  ctx.restore();
+  el.style.left = char.x + 'px';
+  el.style.top = char.y + 'px';
+}
+
 let activeEmptyBubble=null;
 function showEmptyBubble(g,type,cb){removeEmptyBubble();const b=document.createElement('div');b.className='empty-bubble'+(type==='whisper'?' whisper':'');b.innerHTML=type==='whisper'?'🤫 ...':'💬 ...';document.body.appendChild(b);b.addEventListener('click',(e)=>{e.stopPropagation();removeEmptyBubble();if(cb)cb();});const t={el:b,charGetter:g};function up(){if(!b.parentElement)return;const p=g();b.style.left=(p.x+DISPLAY_SIZE/2)+'px';b.style.top=(p.y-44)+'px';}up();t.updatePos=up;t.timeout=setTimeout(()=>removeEmptyBubble(),EMPTY_BUBBLE_DURATION);activeEmptyBubble=t;ipcRenderer.send('set-ignore-mouse',false);}
 function removeEmptyBubble(){if(activeEmptyBubble){clearTimeout(activeEmptyBubble.timeout);if(activeEmptyBubble.el.parentElement)activeEmptyBubble.el.remove();activeEmptyBubble=null;}}
