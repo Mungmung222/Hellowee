@@ -1,0 +1,35 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "hellowee_default.moc3",
+    "Textures": [
+      "textures/body_default.png",
+      "textures/clothes_hoodie.png",
+      "textures/eyes_round.png",
+      "textures/mouth_smile.png",
+      "textures/hair_short.png",
+      "textures/accessory_none.png"
+    ],
+    "Physics": "hellowee_default.physics3.json",
+    "Motions": {
+      "Idle": [{ "File": "motions/idle.motion3.json", "FadeInTime": 0.5, "FadeOutTime": 0.5 }],
+      "Walk": [{ "File": "motions/walk.motion3.json", "FadeInTime": 0.3, "FadeOutTime": 0.3 }],
+      "Wave": [{ "File": "motions/wave.motion3.json", "FadeInTime": 0.2, "FadeOutTime": 0.5 }],
+      "Sit":  [{ "File": "motions/sit.motion3.json", "FadeInTime": 0.4, "FadeOutTime": 0.4 }],
+      "Nod":  [{ "File": "motions/nod.motion3.json", "FadeInTime": 0.2, "FadeOutTime": 0.3 }],
+      "Jump": [{ "File": "motions/jump.motion3.json", "FadeInTime": 0.1, "FadeOutTime": 0.3 }],
+      "Fall": [{ "File": "motions/fall.motion3.json", "FadeInTime": 0.1, "FadeOutTime": 0.2 }],
+      "Grabbed": [{ "File": "motions/grabbed.motion3.json", "FadeInTime": 0.1, "FadeOutTime": 0.2 }],
+      "Land": [{ "File": "motions/land.motion3.json", "FadeInTime": 0.05, "FadeOutTime": 0.3 }],
+      "Thrown": [{ "File": "motions/thrown.motion3.json", "FadeInTime": 0.05, "FadeOutTime": 0.2 }]
+    }
+  },
+  "Groups": [
+    { "Target": "Parameter", "Name": "Idle", "Ids": ["ParamBreath"] },
+    { "Target": "Parameter", "Name": "LipSync", "Ids": ["ParamMouthOpenY"] }
+  ],
+  "HitAreas": [
+    { "Id": "HitBody", "Name": "Body" },
+    { "Id": "HitHead", "Name": "Head" }
+  ]
+}
